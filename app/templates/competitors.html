@@ -1,0 +1,59 @@
+<h1 data-i18n="competitors.title">Конкуренти</h1>
+<p class="subtitle" data-i18n="competitors.subtitle">Трамплін у робочу веб-версію Meta Ad Library — швидше й надійніше за обмежений API.</p>
+
+<div class="status-box show warn" style="margin-bottom:18px;">
+  <strong data-i18n="competitors.banner.title">Дивимось вручну — це надійніше.</strong><br>
+  <span data-i18n="competitors.banner.text">Meta Ad Library API для звичайної комерційної реклами вимагає верифікації застосунку і
+  бізнес-верифікації, а віддає все одно мізер — лише EU/UK, без показів і витрат. Не вартує заходу.
+  Замість цього відкриваємо робочу веб-версію Ad Library з уже підставленими фільтрами — там видно
+  все наживо.</span>
+</div>
+
+<div class="card">
+  <div class="toolbar">
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+      <div class="field" style="min-width:260px;">
+        <label for="competitors-query" data-i18n="competitors.form.query_label">Ніша / ключові слова</label>
+        <input type="text" id="competitors-query" data-i18n-placeholder="competitors.form.query_placeholder" placeholder="наприклад: манікюрні курси">
+      </div>
+      <div class="field" style="min-width:220px;">
+        <label for="competitors-country-picker" data-i18n="competitors.form.countries_label">Країни</label>
+        <select id="competitors-country-picker">
+          <option value="" data-i18n="competitors.form.country_picker_placeholder">— обрати країну —</option>
+        </select>
+        <div id="competitors-country-chips" class="country-chips"></div>
+      </div>
+      <button class="btn" id="btn-competitors-open" data-i18n="competitors.form.open_btn">Відкрити в Ad Library</button>
+    </div>
+    <span class="meta" id="competitors-meta"></span>
+  </div>
+
+  <div class="field" style="margin-top:12px; max-width:320px;">
+    <label for="competitors-countries" data-i18n="competitors.form.manual_codes_label">Або вручну (коди через кому)</label>
+    <input type="text" id="competitors-countries" value="UA">
+    <p class="hint" data-i18n="competitors.form.countries_hint">
+      Коди країн через кому (ISO 3166-1 alpha-2), наприклад: UA,PL,DE.
+    </p>
+  </div>
+
+  <details id="competitors-country-reference" style="margin-top:14px;">
+    <summary data-i18n="competitors.form.reference_summary">Усі коди країн</summary>
+    <div id="competitors-country-reference-list" class="country-reference-list"></div>
+  </details>
+
+  <div id="competitors-links" style="display:none; margin-top:14px;">
+    <h2 style="font-size:14px;" data-i18n="competitors.links.heading">Посилання по країнах</h2>
+    <div id="competitors-links-list" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+  </div>
+</div>
+
+<div class="card competitors-checklist">
+  <h2 data-i18n="competitors.checklist.heading">Що дивитись у конкурента</h2>
+  <ol>
+    <li data-i18n="competitors.checklist.item1">Хук у перші 3 секунди</li>
+    <li data-i18n="competitors.checklist.item2">Формат (відео / карусель / статика)</li>
+    <li data-i18n="competitors.checklist.item3">Оффер і чи є ціна в креативі</li>
+    <li data-i18n="competitors.checklist.item4">Як довго крутиться оголошення (довго = працює, вивчи його)</li>
+    <li data-i18n="competitors.checklist.item5">Куди ведуть (профіль / сайт / директ)</li>
+  </ol>
+</div>

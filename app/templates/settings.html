@@ -1,0 +1,102 @@
+<h1 data-i18n="settings.title">Настройки</h1>
+<p class="subtitle" data-i18n="settings.subtitle">Вставьте свои ключи. Всё хранится локально в config.json на этом компьютере — не в коде.</p>
+
+<div class="card">
+  <h2 data-i18n="settings.network.heading">Доступ с телефона</h2>
+  <div id="network-info-box" class="status-box show" style="display:flex; flex-direction:column; gap:6px;">
+    <span data-i18n="settings.network.loading">Определяю адрес в локальной сети...</span>
+  </div>
+  <div class="hint" data-i18n="settings.network.hint">
+    Телефон и компьютер должны быть в одной Wi-Fi сети. Компьютер с дашбордом должен быть включён.
+    Если телефон не открывает адрес — проверьте, что брандмауэр Windows не блокирует Python для порта 5000.
+  </div>
+</div>
+
+<div class="card">
+  <h2 data-i18n="settings.token.heading">Срок действия токена</h2>
+  <div id="token-status-box" class="status-box" data-i18n="settings.token.checking">Проверяю...</div>
+  <button class="btn secondary" id="btn-refresh-token" data-i18n="settings.token.refresh_btn">Обновить токен сейчас</button>
+</div>
+
+<div class="card">
+  <h2 data-i18n="projects.heading">Проєкти</h2>
+  <p class="hint" data-i18n="projects.hint">
+    Кожен проєкт — окремий клієнт/акаунт зі своїм Instagram-токеном, рекламним кабінетом, нішею
+    і (опційно) своїм ключем Anthropic. Дані (рубрики, ідеї, вердикти скриптів тощо) не змішуються
+    між проєктами.
+  </p>
+
+  <div class="field" style="display:flex; gap:8px; align-items:flex-end;">
+    <div style="flex:1;">
+      <label for="new-project-name" data-i18n="projects.new_name_label">Назва нового проєкту</label>
+      <input type="text" id="new-project-name" data-i18n-placeholder="projects.new_name_placeholder">
+    </div>
+    <button class="btn" id="btn-add-project" data-i18n="projects.add_btn">Додати проєкт</button>
+  </div>
+
+  <div id="projects-list"></div>
+</div>
+
+<div class="card">
+  <h2 data-i18n="settings.anthropic.heading">Anthropic (Claude)</h2>
+  <p class="hint" data-i18n="settings.anthropic.default_hint">
+    Спільний ключ за замовчуванням — використовується всіма проєктами, у яких не задано свій
+    окремий ключ (див. картку "Проєкти" вище).
+  </p>
+  <div class="field">
+    <label for="anthropic-key" data-i18n="settings.anthropic.key_label">Anthropic API Key</label>
+    <input type="password" id="anthropic-key" placeholder="sk-ant-...">
+    <div class="hint" data-i18n-html="settings.anthropic.key_hint">
+      Используется для классификации типа хука (дёшево, модель Haiku) и «Генератора скриптов» (следующий этап).
+      Получить ключ: <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com/settings/keys</a>
+    </div>
+  </div>
+  <button class="btn secondary" id="btn-test-anthropic" data-i18n="settings.anthropic.test_btn">Проверить ключ</button>
+  <div id="anthropic-status" class="status-box"></div>
+</div>
+
+<div class="card">
+  <h2 data-i18n="settings.sync.heading">Синхронизация</h2>
+  <div class="field">
+    <label for="max-media" data-i18n="settings.ig.max_media_label">Лимит постов при синке (MAX_MEDIA)</label>
+    <input type="number" id="max-media" value="100" min="1" max="2000">
+    <div class="hint" data-i18n="settings.ig.max_media_hint">Сколько последних рилсов/постов подтягивать за один синк.</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 data-i18n="settings.whisper.heading">Транскрипция (Whisper)</h2>
+  <div class="field">
+    <label for="content-language" data-i18n="settings.whisper.content_lang_label">Язык контента</label>
+    <select id="content-language">
+      <option value="" data-i18n="settings.whisper.lang_auto">Автоопределение</option>
+      <option value="uk" data-i18n="settings.whisper.lang_uk">Украинский</option>
+      <option value="ru" data-i18n="settings.whisper.lang_ru">Русский</option>
+    </select>
+    <div class="hint" data-i18n="settings.whisper.content_lang_hint">
+      Если в рилсах смешаны украинский и русский — автоопределение может путать язык внутри одного ролика.
+      Зафиксируйте основной язык контента, чтобы транскрипт был точнее.
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="whisper-model" data-i18n="settings.whisper.model_label">Модель Whisper</label>
+    <select id="whisper-model">
+      <option value="small" data-i18n="settings.whisper.model_small">small — быстрее, ~460 МБ, точности достаточно для большинства роликов</option>
+      <option value="medium" data-i18n="settings.whisper.model_medium">medium — точнее (особенно на украинском/музыке), ~1.5 ГБ, распознаёт заметно дольше</option>
+    </select>
+    <div class="hint" data-i18n="settings.whisper.model_hint">
+      При смене модели она скачается заново при первой транскрипции — это разовая операция, дальше берётся из кэша.
+    </div>
+  </div>
+</div>
+
+<button class="btn secondary" id="btn-save-settings" data-i18n="settings.save_btn">Сохранить настройки</button>
+<span id="save-status" style="margin-left:10px; font-size:13px; color:var(--muted);"></span>
+
+<div class="card">
+  <h2 data-i18n="settings.updates.heading">Обновления</h2>
+  <p class="hint" id="update-current-version" data-version="{{ app_version }}"></p>
+  <button class="btn secondary" id="btn-check-updates" data-i18n="settings.updates.check_btn">Проверить обновления</button>
+  <div id="update-status" class="status-box"></div>
+</div>

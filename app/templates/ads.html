@@ -1,0 +1,89 @@
+<h1 data-i18n="ads.title">Реклама</h1>
+<p class="subtitle" id="ads-subtitle" data-i18n="ads.subtitle">Marketing API (act_...) — тот же токен, что и Instagram, с правом ads_read.</p>
+
+<div class="toolbar">
+  <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+    <button class="btn secondary period-btn" data-period="today" data-i18n="ads.period.today">Сегодня</button>
+    <button class="btn secondary period-btn" data-period="last_7d" data-i18n="ads.period.last_7d">7 дней</button>
+    <button class="btn secondary period-btn" data-period="last_14d" data-i18n="ads.period.last_14d">14 дней</button>
+    <button class="btn secondary period-btn" data-period="last_30d" data-i18n="ads.period.last_30d">30 дней</button>
+    <button class="btn secondary period-btn active" data-period="maximum" data-i18n="ads.period.maximum">Максимум</button>
+    <button class="btn secondary period-btn" data-period="custom" data-i18n="ads.period.custom">Период...</button>
+    <span id="ads-custom-range" style="display:none; gap:8px; align-items:center;">
+      <input type="date" id="ads-date-from" style="width:auto;">
+      <span>—</span>
+      <input type="date" id="ads-date-to" style="width:auto;">
+    </span>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <button class="btn" id="btn-ads-load" data-i18n="ads.load_btn">Загрузить</button>
+    <span class="meta" id="ads-meta"></span>
+    <span class="meta" id="ads-updated-ago"></span>
+  </div>
+</div>
+<p class="hint" id="ads-today-note" style="display:none; margin-top:-8px; margin-bottom:14px;" data-i18n="ads.period.today_delay_note">
+  Meta обновляет данные с задержкой в несколько часов — цифры за «Сегодня» могут быть неполными.
+</p>
+
+<div class="card">
+  <h2 data-i18n="ads.kpi.heading">Мои KPI (цели по цели кампании)</h2>
+  <p class="hint" style="margin-top:-6px; margin-bottom:16px;" data-i18n="ads.kpi.hint">
+    Задайте свои целевые цифры отдельно для каждой цели кампании — дальше факт по каждой кампании/группе
+    будет сравниваться с ними и подсвечиваться как «успех / норма / провал». Поля необязательны — заполните
+    только то, что применимо к вашей цели (например, ROAS не имеет смысла для «Узнаваемости»).
+  </p>
+
+  <div class="field">
+    <label for="kpi-objective-select" data-i18n="ads.kpi.objective_label">Цель кампании</label>
+    <select id="kpi-objective-select"></select>
+  </div>
+
+  <div class="detail-grid" style="border-top:none; margin-top:0; padding-top:0;">
+    <div class="field"><label for="kpi-target-cpl">Target CPL</label><input type="number" id="kpi-target-cpl" step="0.01"></div>
+    <div class="field"><label for="kpi-target-cpm">Target CPM</label><input type="number" id="kpi-target-cpm" step="0.01"></div>
+    <div class="field"><label for="kpi-target-ctr">Target CTR, %</label><input type="number" id="kpi-target-ctr" step="0.01"></div>
+    <div class="field"><label for="kpi-target-roas">Target ROAS</label><input type="number" id="kpi-target-roas" step="0.01"></div>
+    <div class="field"><label for="kpi-target-cost-per-result" data-i18n="ads.kpi.target_cost_per_result">Target cost per result</label><input type="number" id="kpi-target-cost-per-result" step="0.01"></div>
+  </div>
+
+  <button class="btn" id="btn-save-kpi" data-i18n="ads.kpi.save_btn">Сохранить цели для этой цели кампании</button>
+  <span class="meta" id="kpi-save-status" style="margin-left:10px;"></span>
+
+  <div id="kpi-saved-list" style="margin-top:16px;"></div>
+
+  <p class="hint" style="margin-top:16px; margin-bottom:6px;"><strong data-i18n="ads.kpi.benchmarks_label">Ориентиры (очень грубо, зависит от ниши/рынка — не норматив):</strong></p>
+  <ul class="help-list" id="kpi-benchmarks"></ul>
+</div>
+
+<div id="ads-content" style="display:none;">
+  <div class="card" id="ads-account-card"></div>
+
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0;" data-i18n="ads.raw.heading">Сырые цифры (для сверки с Ads Manager)</h2>
+      <span class="meta" id="ads-raw-meta"></span>
+    </div>
+    <div class="table-scroll">
+      <table id="ads-raw-table">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="hint" style="margin-top:10px;" data-i18n="ads.raw.hint">
+      Бюджет/ставка берутся с ноды кампании/группы (переведены из минорных единиц валюты кабинета).
+      Остальные цифры — напрямую из Insights API за выбранный период, без округлений сверх того, что отдаёт Meta.
+      Если что-то разойдётся с Ads Manager — это сигнал поправить конвертацию, а не список полей.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0;" data-i18n="ads.structure.heading">Структура кабинета</h2>
+      <span class="meta" id="ads-structure-meta"></span>
+    </div>
+    <p class="hint" style="margin-bottom:14px;" data-i18n="ads.structure.hint">Клик по строке — раскрыть группы объявлений / объявления.</p>
+    <div id="ads-campaigns"></div>
+  </div>
+</div>
+
+<div id="ads-empty" class="empty-state" data-i18n="ads.empty">Данных пока нет — укажите Ad Account ID на «Настройках» и нажмите «Загрузить».</div>

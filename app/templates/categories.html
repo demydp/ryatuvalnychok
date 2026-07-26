@@ -1,0 +1,75 @@
+<h1 data-i18n="categories.title">Рубрики</h1>
+<p class="subtitle" data-i18n="categories.subtitle">Тематические серии контента — авто-определение через Claude, ручные правки, эффективность по темам.</p>
+
+<div class="card">
+  <div class="toolbar">
+    <h2 style="margin:0;"><span data-i18n="categories.auto_detect.heading">Автоопределение рубрик</span> <span class="badge manual-source" style="text-transform:none; font-weight:600;" data-i18n="categories.auto_detect.optional_badge">опционально</span></h2>
+    <button class="btn" id="btn-auto-detect" data-i18n="categories.auto_detect.btn">Определить рубрики через Claude</button>
+  </div>
+  <p class="hint">
+    <span data-i18n="categories.auto_detect.hint1">Это необязательный шаг — вы сами решаете, нужен он или нет. Анализирует подписи и транскрипты всех органических рилсов и группирует их в 3–8 тематических рубрик через Claude.</span>
+    <strong data-i18n="categories.auto_detect.warning_label">Внимание:</strong>
+    <span data-i18n="categories.auto_detect.hint2">полностью пересоздаёт список рубрик и назначения — ручные правки (переименования, объединения, ручной перенос) будут потеряны. Рубрики можно вести и полностью вручную, без этой кнопки — см. ниже.</span>
+  </p>
+  <div id="auto-detect-status" class="status-box"></div>
+</div>
+
+<div class="card">
+  <div class="toolbar">
+    <h2 style="margin:0;" data-i18n="categories.list.heading">Рубрики</h2>
+    <span class="meta" id="categories-meta"></span>
+  </div>
+
+  <div class="toolbar" style="margin-bottom:16px;">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <input type="text" id="new-category-name" data-i18n-placeholder="categories.new_name_placeholder" placeholder="Название новой рубрики" style="width:220px;">
+      <button class="btn secondary" id="btn-add-category" data-i18n="categories.add_btn">Добавить</button>
+    </div>
+    <div id="merge-controls" style="display:none; gap:8px; align-items:center; flex-wrap:wrap;">
+      <input type="text" id="merge-name" data-i18n-placeholder="categories.merge_name_placeholder" placeholder="Название после объединения" style="width:200px;">
+      <button class="btn secondary" id="btn-merge" data-i18n="categories.merge_btn">Объединить выбранные</button>
+    </div>
+  </div>
+
+  <div id="categories-empty" class="empty-state" data-i18n="categories.empty">Рубрик пока нет. Создай вручную (форма выше) или запусти авто-определение (кнопка сверху) — что удобнее.</div>
+  <div id="categories-list" class="top-cards"></div>
+</div>
+
+<div class="card">
+  <div class="toolbar">
+    <h2 style="margin:0;" data-i18n="categories.ai_summary.heading">AI-висновок</h2>
+    <button class="btn secondary" id="btn-categories-ai-summary" data-i18n="categories.ai_summary.btn">Згенерувати AI-висновок</button>
+  </div>
+  <div id="categories-ai-summary-status" class="status-box"></div>
+  <p class="hint" id="categories-ai-summary-text" style="display:none; white-space:pre-wrap;"></p>
+</div>
+
+<div class="card" id="reels-card" style="display:none;">
+  <div class="toolbar">
+    <h2 style="margin:0;" data-i18n="categories.reels.heading">Рилсы по рубрикам</h2>
+    <span class="meta" id="reels-meta"></span>
+  </div>
+  <div class="table-scroll">
+    <table id="category-reels-table">
+      <colgroup>
+        <col style="width:8%">
+        <col style="width:42%">
+        <col style="width:14%">
+        <col style="width:8%">
+        <col style="width:28%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th data-i18n="categories.reels.th_thumbnail">Превью</th>
+          <th data-i18n="categories.reels.th_caption">Подпись</th>
+          <th data-i18n="categories.reels.th_date">Дата</th>
+          <th data-i18n="categories.reels.th_er">ER %</th>
+          <th data-i18n="categories.reels.th_category">Рубрика</th>
+        </tr>
+      </thead>
+      <tbody id="category-reels-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="categories-reels-empty" class="empty-state" data-i18n="categories.reels.empty">Данных пока нет — сначала синхронизируйте метрики на вкладке «Метрики».</div>

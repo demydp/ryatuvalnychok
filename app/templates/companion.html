@@ -1,0 +1,37 @@
+<h1 data-i18n="companion.title">Напарник</h1>
+<p class="subtitle" data-i18n="companion.subtitle">ШІ-чат, що знає ваші реальні дані: метрики, топ-рілси, рубрики, активну рекламу і вердикти.</p>
+
+<div id="companion-empty" class="empty-state" style="display:none;">
+  <p data-i18n="companion.empty.title">Напарник вимкнено — немає Anthropic-ключа.</p>
+  <p class="hint" data-i18n="companion.empty.text">Додайте Anthropic API ключ у Налаштуваннях, щоб увімкнути напарника.</p>
+  <button class="btn" id="btn-companion-go-settings" data-i18n="companion.empty.btn">Перейти в налаштування</button>
+</div>
+
+<div id="companion-chat" class="card companion-card" style="display:none;">
+  <div class="toolbar">
+    <div class="field" style="width:180px;">
+      <label for="companion-model" data-i18n="companion.model.label">Модель</label>
+      <select id="companion-model">
+        <option value="claude-opus-4-8" data-i18n="companion.model.opus">Opus</option>
+        <option value="claude-sonnet-4-6" data-i18n="companion.model.sonnet">Sonnet</option>
+        <option value="claude-haiku-4-5" data-i18n="companion.model.haiku">Haiku</option>
+      </select>
+    </div>
+    <button class="btn secondary" id="btn-companion-clear" data-i18n="companion.btn.clear">Очистити чат</button>
+  </div>
+
+  <div class="companion-examples" id="companion-examples">
+    <button type="button" class="companion-chip" data-i18n="companion.example.1">Що зняти сьогодні?</button>
+    <button type="button" class="companion-chip" data-i18n="companion.example.2">Чому цей рілс не зайшов?</button>
+    <button type="button" class="companion-chip" data-i18n="companion.example.3">Зібери звіт по рекламі</button>
+  </div>
+
+  <div id="companion-messages" class="companion-messages"></div>
+
+  <div id="companion-status" class="status-box"></div>
+
+  <div class="companion-input-row">
+    <textarea id="companion-input" rows="1" data-i18n-placeholder="companion.input.placeholder" placeholder="Напишіть питання..."></textarea>
+    <button class="btn" id="btn-companion-send" data-i18n="companion.btn.send">Надіслати</button>
+  </div>
+</div>

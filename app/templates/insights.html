@@ -1,0 +1,86 @@
+<h1 data-i18n="insights.title">Что заходит</h1>
+<p class="subtitle" id="insights-subtitle" data-i18n="insights.subtitle">Анализ только по органическим рилсам (без рекламных, без постов без инсайтов).</p>
+
+<div class="toolbar">
+  <button class="btn" id="btn-refresh-insights" data-i18n="insights.refresh_btn">Обновить анализ</button>
+  <span class="meta" id="insights-meta"></span>
+</div>
+
+<div id="insights-empty" class="empty-state" data-i18n="insights.empty_default">
+  Сначала синхронизируйте данные на вкладке «Метрики», затем нажмите «Обновить анализ».
+</div>
+
+<div id="insights-content" style="display:none;">
+  <div id="insights-warning" class="status-box error" style="display:none; margin-bottom:20px;"></div>
+
+  <div class="card" id="recommendations-card">
+    <h2 data-i18n="insights.recommendations.heading">Рекомендации на ваших данных</h2>
+    <ul class="rec-list" id="recommendations-list"></ul>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0;" data-i18n="insights.ai_summary.heading">AI-висновок</h2>
+      <button class="btn secondary" id="btn-insights-ai-summary" data-i18n="insights.ai_summary.btn">Згенерувати AI-висновок</button>
+    </div>
+    <div id="insights-ai-summary-status" class="status-box"></div>
+    <p class="hint" id="insights-ai-summary-text" style="display:none; white-space:pre-wrap;"></p>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h2 data-i18n="insights.chart.by_hour">Средний ER по времени публикации</h2>
+      <canvas id="chart-hour"></canvas>
+    </div>
+    <div class="chart-card">
+      <h2 data-i18n="insights.chart.by_weekday">Средний ER по дню недели</h2>
+      <canvas id="chart-weekday"></canvas>
+    </div>
+  </div>
+
+  <div class="post-lists-grid">
+    <div class="card">
+      <h2><span data-i18n="insights.list.top_er">Топ по ER</span><span class="info-icon" data-metric="engagement_rate" data-i18n-title="insights.list.er_hint" title="Доля увидевших, кто отреагировал">ⓘ</span></h2>
+      <div id="list-top-er" class="post-mini-list"></div>
+    </div>
+    <div class="card">
+      <h2><span data-i18n="insights.list.bottom_er">Худшие по ER</span><span class="info-icon" data-metric="engagement_rate" data-i18n-title="insights.list.er_hint" title="Доля увидевших, кто отреагировал">ⓘ</span></h2>
+      <div id="list-bottom-er" class="post-mini-list"></div>
+    </div>
+    <div class="card">
+      <h2><span data-i18n="insights.list.top_saves">Топ по сохранениям (Saves rate)</span><span class="info-icon" data-metric="saves_rate" data-i18n-title="insights.list.saves_hint" title="Доля увидевших, кто сохранил ролик">ⓘ</span></h2>
+      <div id="list-top-saves" class="post-mini-list"></div>
+      <p class="na" id="saves-note" style="display:none;"></p>
+    </div>
+    <div class="card">
+      <h2><span data-i18n="insights.list.top_shares">Топ по репостам</span><span class="info-icon" data-metric="shares_rate" data-i18n-title="insights.list.shares_hint" title="Доля увидевших, кто переслал ролик">ⓘ</span></h2>
+      <div id="list-top-shares" class="post-mini-list"></div>
+      <p class="na" id="shares-note" style="display:none;"></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="insights.results.heading">Результат: топ рилсов по взаимодействиям</h2>
+    <div style="overflow-x:auto;">
+      <table id="results-table">
+        <thead>
+          <tr>
+            <th data-i18n="insights.results.th_post">Пост</th>
+            <th data-i18n="insights.results.th_likes">Лайки</th>
+            <th data-i18n="insights.results.th_comments">Коммент.</th>
+            <th data-i18n="insights.results.th_saved">Сохран.</th>
+            <th data-i18n="insights.results.th_shares">Репосты</th>
+            <th data-i18n="insights.results.th_interactions">Взаимод.</th>
+          </tr>
+        </thead>
+        <tbody id="results-tbody"></tbody>
+      </table>
+    </div>
+    <p class="hint" style="margin-top:10px;" data-i18n="insights.results.hint">
+      Подписки, полученные от конкретного видео, Instagram Graph API не отдаёт ни по одному полю —
+      честно показать эту цифру нельзя, поэтому её здесь нет.
+    </p>
+  </div>
+
+  <p class="hint" id="video-length-note"></p>
+</div>

@@ -1,0 +1,76 @@
+<h1 data-i18n="metrics.title">Метрики рилсов</h1>
+<p class="subtitle" id="metrics-subtitle" data-i18n="metrics.subtitle_default">Нажмите «Синхронизировать», чтобы загрузить данные из Instagram.</p>
+
+<div class="toolbar">
+  <button class="btn" id="btn-sync" data-i18n="metrics.sync_btn">Синхронизировать</button>
+  <span class="meta" id="sync-meta"></span>
+  <span class="meta" id="sync-ago"></span>
+</div>
+
+<div id="metrics-content" style="display:none;">
+  <div class="top-cards" id="top-cards"></div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h2 data-i18n="metrics.chart.top_reach">Топ-10 по охвату (reach)</h2>
+      <canvas id="chart-reach"></canvas>
+    </div>
+    <div class="chart-card">
+      <h2 data-i18n="metrics.chart.er_timeline">Engagement rate по постам (хронология)</h2>
+      <canvas id="chart-er"></canvas>
+    </div>
+  </div>
+
+  <p class="hint" style="margin: -8px 0 16px;" data-i18n="metrics.hint">
+    Reach/Views/Saved/Shares — только органика. Если пост продвигался рекламой, приложение Instagram
+    может показывать бо́льшие цифры (органика + платный охват) — точное разделение появится в модуле «Реклама» (Этап 4).
+    Отметьте такие посты галочкой «Реклама» — вкладка «Что заходит» исключит их из анализа, чтобы не искажать ER.
+    Наведите курсор на число, чтобы увидеть точное значение. Клик по строке — подробности и сырые метрики поста.
+  </p>
+
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0;" data-i18n="metrics.table.heading">Все посты</h2>
+      <span class="meta" id="table-meta"></span>
+    </div>
+    <div class="table-scroll">
+      <table id="posts-table">
+        <colgroup>
+          <col style="width:3%">
+          <col style="width:5%">
+          <col style="width:21%">
+          <col style="width:6%">
+          <col style="width:8%">
+          <col style="width:8%">
+          <col style="width:6%">
+          <col style="width:6%">
+          <col style="width:7%">
+          <col style="width:6%">
+          <col style="width:6%">
+          <col style="width:7%">
+          <col style="width:11%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th></th>
+            <th data-key="thumbnail"><span data-i18n="metrics.th.thumbnail">Превью</span></th>
+            <th data-key="caption"><span data-i18n="metrics.th.caption">Подпись</span></th>
+            <th data-key="media_product_type"><span data-i18n="metrics.th.type">Тип</span></th>
+            <th data-key="timestamp"><span data-i18n="metrics.th.date">Дата</span></th>
+            <th data-key="reach"><span data-i18n="metrics.th.reach">Reach</span><span class="info-icon" data-metric="reach" data-i18n-title="metrics.th.reach_hint" title="Охват — сколько уникальных людей увидело ролик">ⓘ</span></th>
+            <th data-key="views"><span data-i18n="metrics.th.views">Views</span><span class="info-icon" data-metric="views" data-i18n-title="metrics.th.views_hint" title="Просмотры — число проигрываний, считает повторы">ⓘ</span></th>
+            <th data-key="like_count"><span data-i18n="metrics.th.likes">Лайки</span></th>
+            <th data-key="comments_count"><span data-i18n="metrics.th.comments">Коммент.</span></th>
+            <th data-key="saved"><span data-i18n="metrics.th.saved">Сохран.</span><span class="info-icon" data-metric="saved" data-i18n-title="metrics.th.saved_hint" title="Сколько раз ролик сохранили в закладки">ⓘ</span></th>
+            <th data-key="shares"><span data-i18n="metrics.th.shares">Репосты</span><span class="info-icon" data-metric="shares" data-i18n-title="metrics.th.shares_hint" title="Сколько раз ролик переслали другим">ⓘ</span></th>
+            <th data-key="engagement_rate"><span data-i18n="metrics.th.er">ER %</span><span class="info-icon" data-metric="engagement_rate" data-i18n-title="metrics.th.er_hint" title="Доля увидевших, кто отреагировал — главный градусник качества">ⓘ</span></th>
+            <th><span data-i18n="metrics.th.ad">Реклама</span></th>
+          </tr>
+        </thead>
+        <tbody id="posts-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="metrics-empty" class="empty-state" data-i18n="metrics.empty">Данных пока нет.</div>

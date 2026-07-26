@@ -1,0 +1,23 @@
+<h1 data-i18n="signals.title">Сигнали</h1>
+<p class="subtitle" data-i18n="signals.subtitle">Дашборд сам проганяє правила по даних і показує сигнали з причиною і дією — не треба вручну моніторити.</p>
+
+<div class="toolbar">
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <span class="signal-count-pill red" id="signals-count-red"></span>
+    <span class="signal-count-pill yellow" id="signals-count-yellow"></span>
+    <span class="signal-count-pill green" id="signals-count-green"></span>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <button class="btn secondary" id="btn-signals-refresh" data-i18n="signals.refresh_btn">Оновити</button>
+    <span class="meta" id="signals-meta"></span>
+  </div>
+</div>
+
+<div id="signals-empty" class="empty-state" data-i18n="signals.empty" style="display:none;">Сигналів немає — усе спокійно.</div>
+
+<div id="signals-list" class="signals-list"></div>
+
+<div id="signals-resolved-wrap" style="display:none; margin-top:10px;">
+  <button class="btn secondary" id="btn-signals-show-resolved"></button>
+  <div id="signals-resolved-list" class="signals-list" style="display:none; margin-top:14px;"></div>
+</div>

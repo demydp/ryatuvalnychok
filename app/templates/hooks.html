@@ -1,0 +1,124 @@
+<h1 data-i18n="hooks.title">Хук-анализ</h1>
+<p class="subtitle" id="hooks-subtitle" data-i18n="hooks.subtitle">Транскрипция речи (Whisper, локально) + расчёт индикатора хука по органическим Reels.</p>
+
+<div class="status-box show warn" style="margin-bottom:18px;">
+  <strong data-i18n="hooks.heavy_op.title">Тяжёлая операция.</strong>
+  <span data-i18n-html="hooks.heavy_op.text">Транскрипция скачивает видео и распознаёт речь локально —
+  на первый запуск дополнительно скачивается модель Whisper (<span id="model-size-hint">~460 МБ</span>),
+  дальше она берётся из кэша. Каждый рилс обрабатывается от нескольких секунд до минуты в зависимости от длины
+  и мощности компьютера. Сначала протестируйте на 2–3 рилсах, затем запускайте на всех.
+  Результат кэшируется — повторно уже обработанные рилсы не транскрибируются.</span>
+</div>
+
+<div class="toolbar">
+  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <button class="btn" id="btn-pilot" data-i18n="hooks.pilot_btn">Транскрибировать 3 (тест)</button>
+    <button class="btn secondary" id="btn-all" data-i18n="hooks.all_btn">Транскрибировать все нетранскрибированные</button>
+  </div>
+  <span class="meta" id="model-status-meta"></span>
+</div>
+
+<div id="progress-box" class="status-box" style="display:none;"></div>
+
+<div class="card">
+  <div class="toolbar">
+    <h2 style="margin:0;" data-i18n="hooks.diagnostic.heading">Проверка продвинутых метрик API (эмпирически)</h2>
+    <button class="btn secondary" id="btn-check-metrics" data-i18n="hooks.diagnostic.check_btn">Проверить метрики</button>
+  </div>
+  <p class="hint" data-i18n="hooks.diagnostic.hint">
+    Реально запрашивает у Instagram Graph API skip rate, досмотр, ThruPlay, кривую удержания 25/50/75/100% и hook rate
+    по 2–3 вашим рилсам — и показывает честно, что вернулось, а что нет и почему. Не полагаемся на документацию:
+    часть этих метрик Meta сама помечает «estimated»/«in development», и поддержка может отличаться по аккаунтам.
+  </p>
+  <div id="diagnostic-status" class="status-box"></div>
+  <div id="diagnostic-result" style="display:none; margin-top:14px;">
+    <table id="diagnostic-table" style="table-layout:fixed;">
+      <colgroup>
+        <col style="width:38%">
+        <col style="width:14%">
+        <col style="width:48%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th data-i18n="hooks.diagnostic.th_metric">Метрика</th>
+          <th data-i18n="hooks.diagnostic.th_status">Статус</th>
+          <th data-i18n="hooks.diagnostic.th_value">Значение / причина отказа</th>
+        </tr>
+      </thead>
+      <tbody id="diagnostic-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="hooks-empty" class="empty-state" data-i18n="hooks.empty">
+  Сначала синхронизируйте метрики на вкладке «Метрики», затем запустите транскрипцию.
+</div>
+
+<div id="hooks-content" style="display:none;">
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h2><span data-i18n="hooks.chart.by_type">Какой тип хука держит лучше (индикатор хука = досмотр / длина ролика)</span><span class="info-icon" data-metric="hook_indicator" data-i18n-title="hooks.chart.by_type_hint" title="Какую часть ролика в среднем досматривают">ⓘ</span></h2>
+      <canvas id="chart-hook-type"></canvas>
+      <p class="hint" id="hook-type-note" style="margin-top:10px;"></p>
+    </div>
+    <div class="chart-card">
+      <h2><span data-i18n="hooks.chart.by_skip_rate">Какой тип хука меньше пропускают за 3 сек (Skip Rate, ниже — лучше)</span><span class="info-icon" data-metric="skip_rate" data-i18n-title="hooks.chart.by_skip_rate_hint" title="Процент пролиставших ролик в первые 3 секунды">ⓘ</span></h2>
+      <canvas id="chart-skip-rate"></canvas>
+      <p class="hint" id="skip-rate-note" style="margin-top:10px;"></p>
+    </div>
+    <div class="chart-card">
+      <h2><span data-i18n="hooks.chart.by_engagement">Какой тип хука даёт больше вовлечённости (ER, выше — лучше)</span><span class="info-icon" data-metric="engagement_rate" data-i18n-title="hooks.chart.by_engagement_hint" title="Не только досмотрели, но и среагировали: лайки+комменты+сохранения+репосты / охват">ⓘ</span></h2>
+      <canvas id="chart-engagement-rate"></canvas>
+      <p class="hint" id="engagement-rate-note" style="margin-top:10px;"></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0;" data-i18n="hooks.ai_summary.heading">AI-висновок</h2>
+      <button class="btn secondary" id="btn-hooks-ai-summary" data-i18n="hooks.ai_summary.btn">Згенерувати AI-висновок</button>
+    </div>
+    <div id="hooks-ai-summary-status" class="status-box"></div>
+    <p class="hint" id="hooks-ai-summary-text" style="display:none; white-space:pre-wrap;"></p>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0;" data-i18n="hooks.table.heading">Рилсы</h2>
+      <span class="meta" id="hooks-table-meta"></span>
+    </div>
+    <div class="table-scroll">
+      <table id="hooks-table" style="table-layout:fixed;">
+        <colgroup>
+          <col style="width:3%">
+          <col style="width:6%">
+          <col style="width:18%">
+          <col style="width:9%">
+          <col style="width:10%">
+          <col style="width:8%">
+          <col style="width:10%">
+          <col style="width:10%">
+          <col style="width:8%">
+          <col style="width:9%">
+          <col style="width:9%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th></th>
+            <th data-i18n="hooks.table.th_thumbnail">Превью</th>
+            <th data-i18n="hooks.table.th_hook">Хук (первая фраза)</th>
+            <th data-i18n="hooks.table.th_hook_type">Тип хука</th>
+            <th data-i18n="hooks.table.th_hunt">Этап / температура</th>
+            <th data-i18n="hooks.table.th_duration">Длина</th>
+            <th><span data-i18n="hooks.table.th_avg_watch">Ср. досмотр</span><span class="info-icon" data-metric="avg_watch_time" data-i18n-title="hooks.table.th_avg_watch_hint" title="Сколько в среднем секунд смотрят ролик">ⓘ</span></th>
+            <th><span data-i18n="hooks.table.th_hook_indicator">Индикатор хука</span><span class="info-icon" data-metric="hook_indicator" data-i18n-title="hooks.table.th_hook_indicator_hint" title="Досмотр ÷ длина ролика">ⓘ</span></th>
+            <th><span data-i18n="hooks.table.th_skip_rate">Skip rate</span><span class="info-icon" data-metric="skip_rate" data-i18n-title="hooks.table.th_skip_rate_hint" title="Пропуск в первые 3 секунды">ⓘ</span></th>
+            <th data-i18n="hooks.table.th_ad">Реклама</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="hooks-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>

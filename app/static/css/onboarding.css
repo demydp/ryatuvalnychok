@@ -1,0 +1,77 @@
+.onboarding-main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 48px 24px 72px;
+}
+
+.onboarding-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px 34px;
+  box-shadow: var(--shadow-card);
+}
+
+.onboarding-progress {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.onboarding-progress-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-input);
+  overflow: hidden;
+}
+
+.onboarding-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.onboarding-progress span {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.ob-step h1 {
+  margin-bottom: 10px;
+}
+
+.ob-step .subtitle {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 22px;
+}
+
+.ob-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+
+.ob-actions .ob-next {
+  margin-left: auto;
+}
+
+.ob-model-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.ob-model-progress span {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}

@@ -1,0 +1,169 @@
+<h1 data-i18n="generator.title">Генератор скриптов</h1>
+<p class="subtitle" data-i18n="generator.subtitle">Пишет в вашем стиле, на основе того, что реально зашло и что провалилось.</p>
+
+<div class="card">
+  <div class="toolbar">
+    <h2 style="margin:0;" data-i18n="generator.profile.heading">Профиль стиля</h2>
+    <button class="btn secondary" id="btn-refresh-profile" data-i18n="generator.profile.refresh_btn">Обновить профиль</button>
+  </div>
+  <div id="profile-empty" class="na" data-i18n="generator.profile.empty">Профиль ещё не посчитан — нажмите «Обновить профиль».</div>
+  <div id="profile-content" style="display:none;">
+    <pre id="profile-text" style="white-space:pre-wrap; font-family:inherit; font-size:13px; line-height:1.7; margin:0;"></pre>
+    <p class="hint" id="profile-meta" style="margin-top:10px;"></p>
+  </div>
+  <div id="profile-status" class="status-box" style="margin-top:10px;"></div>
+</div>
+
+<div class="card">
+  <h2 data-i18n="generator.new.heading">Новый скрипт</h2>
+
+  <div class="field">
+    <label for="gen-topic" data-i18n="generator.new.topic_label">Тема рилса</label>
+    <input type="text" id="gen-topic" data-i18n-placeholder="generator.new.topic_placeholder" placeholder="Например: почему клиенты уходят после первого созвона">
+  </div>
+
+  <div class="field">
+    <label data-i18n="generator.new.format_label">Формат</label>
+    <div id="format-cards" class="format-cards">
+      <div class="model-card format-card selected" data-format="reels">
+        <div class="model-name"><span data-i18n="generator.format.reels">Рілс</span></div>
+      </div>
+      <div class="model-card format-card" data-format="carousel">
+        <div class="model-name"><span data-i18n="generator.format.carousel">Карусель</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="gen-category" data-i18n="generator.new.category_label">Рубрика (опционально)</label>
+    <select id="gen-category">
+      <option value="" data-i18n="generator.new.category_none">Без рубрики — общий стиль и все winner-паттерны</option>
+    </select>
+    <p class="hint" data-i18n="generator.new.category_hint">Если выбрать рубрику, скрипт будет опираться на хуки и паттерны, которые сработали именно в ней.</p>
+  </div>
+
+  <div class="field">
+    <label for="gen-hook-type" data-i18n="generator.new.hook_type_label">Желаемый тип хука (опционально)</label>
+    <select id="gen-hook-type">
+      <option value="" data-i18n="generator.new.hook_type_any">Не важно — пусть модель выберет сама</option>
+      <option value="вопрос" data-i18n="hook_type.question">Вопрос</option>
+      <option value="боль" data-i18n="hook_type.pain">Боль</option>
+      <option value="провокация" data-i18n="hook_type.provocation">Провокация</option>
+      <option value="цифра" data-i18n="hook_type.number">Цифра</option>
+      <option value="утверждение" data-i18n="hook_type.statement">Утверждение</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label data-i18n="generator.new.model_label">Модель</label>
+    <div id="model-cards" class="model-cards"></div>
+  </div>
+
+  <div class="field">
+    <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+      <input type="checkbox" id="gen-clean-ads" style="width:auto;">
+      <span data-i18n="generator.new.clean_ads_label">Чистая версия для рекламы (без мата — модерация Meta)</span>
+    </label>
+  </div>
+
+  <button class="btn" id="btn-generate" data-i18n="generator.new.generate_btn">Сгенерировать</button>
+  <span class="meta" id="gen-status" style="margin-left:10px;"></span>
+</div>
+
+<div class="card" id="result-card" style="display:none;">
+  <div class="toolbar">
+    <h2 style="margin:0;" data-i18n="generator.result.heading">Скрипт</h2>
+    <span class="meta" id="result-meta"></span>
+  </div>
+
+  <div id="result-blocks"></div>
+  <div class="script-block" id="result-why-block" style="display:none;">
+    <div class="script-label" data-i18n="generator.result.why_label">ЧОМУ</div>
+    <div class="script-text" id="result-why"></div>
+  </div>
+
+  <ul class="rec-list" id="result-notes" style="margin-top:16px;"></ul>
+</div>
+
+<div class="card">
+  <div class="toolbar">
+    <h2 style="margin:0;" data-i18n="generator.saved.heading">Сохранённые скрипты</h2>
+    <span class="meta" id="saved-meta"></span>
+  </div>
+
+  <div class="toolbar" style="margin-bottom:16px;">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <input type="text" id="saved-search" data-i18n-placeholder="generator.saved.search_placeholder" placeholder="Поиск по теме..." style="width:220px;">
+      <select id="saved-sort" style="width:auto;">
+        <option value="date_desc" data-i18n="generator.saved.sort_date_desc">Сначала новые</option>
+        <option value="date_asc" data-i18n="generator.saved.sort_date_asc">Сначала старые</option>
+        <option value="topic" data-i18n="generator.saved.sort_topic">По теме</option>
+      </select>
+      <label style="display:flex; align-items:center; gap:6px; font-weight:400; font-size:13px;">
+        <input type="checkbox" id="saved-favorites-only" style="width:auto;">
+        <span data-i18n="generator.saved.favorites_only">Только избранное</span>
+      </label>
+    </div>
+    <button class="btn secondary" id="btn-add-manual" data-i18n="generator.manual.add_btn">+ Добавить скрипт вручную</button>
+  </div>
+
+  <div class="card" id="manual-form-card" style="display:none; box-shadow:none; border:1px dashed var(--border); margin-bottom:16px;">
+    <h3 style="margin-top:0;" data-i18n="generator.manual.form_heading">Новый скрипт вручную</h3>
+
+    <div class="field">
+      <label for="manual-topic" data-i18n="generator.manual.topic_label">Название</label>
+      <input type="text" id="manual-topic" data-i18n-placeholder="generator.manual.topic_placeholder" placeholder="Например: Рутинні справи">
+    </div>
+
+    <div class="field">
+      <label for="manual-hook-type" data-i18n="generator.new.hook_type_label">Тип хука</label>
+      <select id="manual-hook-type">
+        <option value="" data-i18n="generator.manual.hook_type_none">Не указан</option>
+        <option value="вопрос" data-i18n="hook_type.question">Вопрос</option>
+        <option value="боль" data-i18n="hook_type.pain">Боль</option>
+        <option value="провокация" data-i18n="hook_type.provocation">Провокация</option>
+        <option value="цифра" data-i18n="hook_type.number">Цифра</option>
+        <option value="утверждение" data-i18n="hook_type.statement">Утверждение</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="manual-model" data-i18n="generator.new.model_label">Модель</label>
+      <select id="manual-model"></select>
+    </div>
+
+    <div class="field">
+      <label for="manual-hook" data-i18n="generator.result.hook_label_short">Хук</label>
+      <textarea id="manual-hook" rows="2" data-i18n-placeholder="generator.manual.hook_placeholder" placeholder="Текст хука (0–3 сек)"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="manual-body" data-i18n="generator.result.body_label">Тело</label>
+      <textarea id="manual-body" rows="5" data-i18n-placeholder="generator.manual.body_placeholder" placeholder="Основной текст"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="manual-cta" data-i18n="generator.result.cta_label">CTA</label>
+      <textarea id="manual-cta" rows="2" data-i18n-placeholder="generator.manual.cta_placeholder" placeholder="Призыв к действию"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="manual-notes" data-i18n="generator.manual.notes_label">Рекомендации под CTA</label>
+      <textarea id="manual-notes" rows="3" data-i18n-placeholder="generator.manual.notes_placeholder" placeholder="По одной рекомендации на строку"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="manual-date" data-i18n="generator.manual.date_label">Дата</label>
+      <input type="datetime-local" id="manual-date" step="1">
+    </div>
+
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="btn" id="btn-save-manual" data-i18n="generator.manual.save_btn">Сохранить</button>
+      <button class="btn secondary" id="btn-cancel-manual" data-i18n="generator.manual.cancel_btn">Отмена</button>
+      <span class="meta" id="manual-status"></span>
+    </div>
+  </div>
+
+  <div id="saved-empty" class="empty-state" data-i18n="generator.saved.empty">Сохранённых скриптов пока нет — сгенерируйте первый выше.</div>
+  <div id="saved-list"></div>
+</div>

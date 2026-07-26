@@ -1,0 +1,134 @@
+<h1 data-i18n="reports.title">Отчёты</h1>
+<p class="subtitle" data-i18n="reports.subtitle">Ежедневный срез активной рекламы: цифры + рекомендации, копится история.</p>
+
+<div class="card">
+  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+    <button class="btn" id="btn-collect-report" data-i18n="reports.collect_btn">Собрать отчёт за день</button>
+    <button class="btn secondary" id="btn-export-excel" data-i18n="reports.export_btn">Выгрузить в Excel</button>
+    <span id="report-status" style="font-size:13px; color:var(--muted);"></span>
+  </div>
+</div>
+
+<div id="report-latest" class="card" style="display:none;">
+  <div id="report-totals" style="display:flex; gap:32px; margin-bottom:20px;"></div>
+  <div id="report-campaigns"></div>
+</div>
+
+<div class="card">
+  <h2 data-i18n="reports.history.heading">История по дням</h2>
+  <div id="report-history-wrap" style="overflow-x:auto;">
+    <table class="report-history-table" id="report-history-table" style="display:none;">
+      <thead>
+        <tr>
+          <th data-i18n="reports.col.date">Дата</th>
+          <th data-i18n="reports.col.campaign">Кампания</th>
+          <th data-i18n="reports.col.objective">Цель</th>
+          <th data-i18n="reports.col.spend">Расход</th>
+          <th data-i18n="reports.col.result">Результат</th>
+          <th data-i18n="reports.col.cost_per_result">Цена результата</th>
+          <th data-i18n="reports.col.recommendation">Рекомендация</th>
+        </tr>
+      </thead>
+      <tbody id="report-history-body"></tbody>
+    </table>
+    <p id="report-history-empty" data-i18n="reports.no_history">История пуста — нажмите «Собрать отчёт за день», чтобы начать копить статистику.</p>
+  </div>
+</div>
+
+<h1 style="margin-top:40px;" data-i18n="reports.past.title">Отчёт по прошлым кампаниям</h1>
+<p class="subtitle" data-i18n="reports.past.subtitle">Неактивные, завершённые и кампании на паузе — метрики, вердикты и рекомендации за любой период, включая всё время.</p>
+
+<div class="card">
+  <div class="toolbar" style="flex-wrap:wrap; gap:14px;">
+    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+      <span class="meta" data-i18n="reports.past.status_filter_label">Статус:</span>
+      <button class="btn secondary past-status-btn active" data-status="all" data-i18n="reports.past.status.all">Все</button>
+      <button class="btn secondary past-status-btn" data-status="active" data-i18n="reports.past.status.active">Активные</button>
+      <button class="btn secondary past-status-btn" data-status="inactive" data-i18n="reports.past.status.inactive">Неактивные</button>
+    </div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+      <button class="btn secondary past-period-btn" data-period="last_7d" data-i18n="ads.period.last_7d">7 дней</button>
+      <button class="btn secondary past-period-btn" data-period="last_14d" data-i18n="ads.period.last_14d">14 дней</button>
+      <button class="btn secondary past-period-btn active" data-period="last_30d" data-i18n="ads.period.last_30d">30 дней</button>
+      <button class="btn secondary past-period-btn" data-period="maximum" data-i18n="reports.past.period.maximum">Всё время</button>
+      <button class="btn secondary past-period-btn" data-period="custom" data-i18n="ads.period.custom">Период...</button>
+      <span id="past-custom-range" style="display:none; gap:8px; align-items:center;">
+        <input type="date" id="past-date-from" style="width:auto;">
+        <span>—</span>
+        <input type="date" id="past-date-to" style="width:auto;">
+      </span>
+    </div>
+  </div>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:16px;">
+    <button class="btn" id="btn-collect-past-report" data-i18n="reports.past.collect_btn">Собрать отчёт по прошлым кампаниям</button>
+    <button class="btn secondary" id="btn-export-past-excel" data-i18n="reports.past.export_btn">Выгрузить в Excel</button>
+    <span id="past-report-status" style="font-size:13px; color:var(--muted);"></span>
+  </div>
+</div>
+
+<div id="past-report-latest" class="card" style="display:none;">
+  <div id="past-report-totals" style="display:flex; gap:32px; margin-bottom:20px;"></div>
+  <div id="past-report-campaigns"></div>
+</div>
+
+<div class="card">
+  <h2 data-i18n="reports.past.history.heading">История отчётов по прошлым кампаниям</h2>
+  <div style="overflow-x:auto;">
+    <table class="report-history-table" id="past-report-history-table" style="display:none;">
+      <thead>
+        <tr>
+          <th data-i18n="reports.past.col.generated_at">Собрано</th>
+          <th data-i18n="reports.past.col.period">Период</th>
+          <th data-i18n="reports.past.col.filter">Фильтр</th>
+          <th data-i18n="reports.col.campaign">Кампания</th>
+          <th data-i18n="reports.past.col.status">Статус</th>
+          <th data-i18n="reports.col.spend">Расход</th>
+          <th data-i18n="reports.col.result">Результат</th>
+          <th data-i18n="reports.col.recommendation">Рекомендация</th>
+        </tr>
+      </thead>
+      <tbody id="past-report-history-body"></tbody>
+    </table>
+    <p id="past-report-history-empty" data-i18n="reports.past.no_history">История пуста — соберите первый отчёт по прошлым кампаниям.</p>
+  </div>
+</div>
+
+<h1 style="margin-top:40px;" data-i18n="reports.client.title">Звіт для клієнта</h1>
+<p class="subtitle" data-i18n="reports.client.subtitle">Готовий звіт за період — з висновком і планом на наступний період, можна одразу відправити клієнту в PDF.</p>
+
+<div class="card">
+  <div class="toolbar" style="flex-wrap:wrap; gap:14px;">
+    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+      <button class="btn secondary client-period-btn active" data-period="daily" data-i18n="reports.client.type.daily">Денний</button>
+      <button class="btn secondary client-period-btn" data-period="weekly" data-i18n="reports.client.type.weekly">Тижневий</button>
+      <button class="btn secondary client-period-btn" data-period="custom" data-i18n="reports.client.type.custom">Довільний період</button>
+      <span id="client-report-custom-range" style="display:none; gap:8px; align-items:center;">
+        <input type="date" id="client-report-date-from" style="width:auto;">
+        <span>—</span>
+        <input type="date" id="client-report-date-to" style="width:auto;">
+      </span>
+    </div>
+  </div>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:16px;">
+    <button class="btn" id="btn-generate-client-report" data-i18n="reports.client.generate_btn">Згенерувати звіт</button>
+    <span id="client-report-status" style="font-size:13px; color:var(--muted);"></span>
+  </div>
+</div>
+
+<div id="client-report-latest" class="card" style="display:none;">
+  <div id="client-report-summary" style="margin-bottom:20px;"></div>
+  <div id="client-report-compare" style="margin-bottom:12px;"></div>
+  <div id="client-report-totals" style="margin-bottom:20px;"></div>
+  <div id="client-report-funnel" style="margin-bottom:20px;"></div>
+  <div id="client-report-campaigns"></div>
+  <div id="client-report-tested" style="margin-top:16px;"></div>
+  <div id="client-report-business" style="margin-top:16px;"></div>
+  <div id="client-report-creatives" style="margin-top:16px;"></div>
+  <div id="client-report-reels" style="margin-top:16px;"></div>
+</div>
+
+<div class="card">
+  <h2 data-i18n="reports.client.history.heading">Збережені звіти</h2>
+  <div id="client-reports-list"></div>
+  <p id="client-reports-empty" data-i18n="reports.client.no_history">Ще немає збережених звітів.</p>
+</div>

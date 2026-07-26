@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Рятувальничок</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ app_version }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Рятуваль<span>ничок</span></div>
+    <div style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; justify-content:flex-end;">
+      <select id="project-switcher" class="project-switcher" data-i18n-title="header.project_switcher_label"></select>
+      <span id="token-status-pill" class="token-status-pill" style="display:none;"><span class="dot"></span><span class="text"></span></span>
+      <div class="lang-switch" role="group" aria-label="Язык интерфейса / Мова інтерфейсу">
+        <button type="button" class="lang-btn" data-lang="ru">РУС</button>
+        <button type="button" class="lang-btn" data-lang="uk">УКР</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs-wrap">
+    <div class="tab-group">
+      <span class="tab-group-label" data-i18n="nav.group.home">Обзор</span>
+      <div class="tab-group-buttons">
+        <button class="tab-btn active" data-tab="home" data-i18n="nav.tab.home">Главная</button>
+        <button class="tab-btn" data-tab="signals" data-i18n="nav.tab.signals">Сигналы</button>
+      </div>
+    </div>
+
+    <div class="tab-group">
+      <span class="tab-group-label" data-i18n="nav.group.companion">Напарник</span>
+      <div class="tab-group-buttons">
+        <button class="tab-btn" data-tab="companion" data-i18n="nav.tab.companion">Напарник</button>
+      </div>
+    </div>
+
+    <div class="tab-group">
+      <span class="tab-group-label" data-i18n="nav.group.ideas">Ідеї</span>
+      <div class="tab-group-buttons">
+        <button class="tab-btn" data-tab="ideas" data-i18n="nav.tab.ideas">Ідеї</button>
+      </div>
+    </div>
+
+    <div class="tab-group">
+      <span class="tab-group-label" data-i18n="nav.group.instagram">Инстаграм <span class="tab-group-sub" data-i18n="nav.group.instagram_sub">(органика)</span></span>
+      <div class="tab-group-buttons">
+        <button class="tab-btn" data-tab="settings" data-i18n="nav.tab.settings">Настройки</button>
+        <button class="tab-btn" data-tab="metrics" data-i18n="nav.tab.metrics">Метрики</button>
+        <button class="tab-btn" data-tab="insights" data-i18n="nav.tab.insights">Что заходит</button>
+        <button class="tab-btn" data-tab="hooks" data-i18n="nav.tab.hooks">Хук-анализ</button>
+        <button class="tab-btn" data-tab="categories" data-i18n="nav.tab.categories">Рубрики</button>
+        <button class="tab-btn" data-tab="generator" data-i18n="nav.tab.generator">Генератор</button>
+      </div>
+    </div>
+
+    <div class="tab-group">
+      <span class="tab-group-label" data-i18n="nav.group.ads">Реклама</span>
+      <div class="tab-group-buttons">
+        <button class="tab-btn" data-tab="ads" data-i18n="nav.tab.ads">Реклама</button>
+        <button class="tab-btn" data-tab="competitors" data-i18n="nav.tab.competitors">Конкуренты</button>
+        <button class="tab-btn" data-tab="reports" data-i18n="nav.tab.reports">Отчёты</button>
+      </div>
+    </div>
+
+    <div class="tab-group tab-group-help">
+      <span class="tab-group-label" data-i18n="nav.group.help">Справка</span>
+      <div class="tab-group-buttons">
+        <button class="tab-btn" data-tab="help" data-i18n="nav.tab.help">Справка</button>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <section id="tab-home" class="tab-panel active">
+      {% include "home.html" %}
+    </section>
+
+    <section id="tab-signals" class="tab-panel">
+      {% include "signals.html" %}
+    </section>
+
+    <section id="tab-companion" class="tab-panel">
+      {% include "companion.html" %}
+    </section>
+
+    <section id="tab-ideas" class="tab-panel">
+      {% include "ideas.html" %}
+    </section>
+
+    <section id="tab-settings" class="tab-panel">
+      {% include "settings.html" %}
+    </section>
+
+    <section id="tab-metrics" class="tab-panel">
+      {% include "metrics.html" %}
+    </section>
+
+    <section id="tab-insights" class="tab-panel">
+      {% include "insights.html" %}
+    </section>
+
+    <section id="tab-hooks" class="tab-panel">
+      {% include "hooks.html" %}
+    </section>
+
+    <section id="tab-categories" class="tab-panel">
+      {% include "categories.html" %}
+    </section>
+
+    <section id="tab-generator" class="tab-panel">
+      {% include "generator.html" %}
+    </section>
+
+    <section id="tab-ads" class="tab-panel">
+      {% include "ads.html" %}
+    </section>
+
+    <section id="tab-competitors" class="tab-panel">
+      {% include "competitors.html" %}
+    </section>
+
+    <section id="tab-reports" class="tab-panel">
+      {% include "reports.html" %}
+    </section>
+
+    <section id="tab-help" class="tab-panel">
+      {% include "help.html" %}
+    </section>
+  </main>
+
+  <script>
+    window.__I18N__ = {{ i18n | tojson }};
+    window.__PROJECTS__ = {{ projects | tojson }};
+    window.__ACTIVE_PROJECT__ = {{ active_project | tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='js/i18n.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/sections.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/projects.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/metric-info.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/settings.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/companion.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/ideas.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/home.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/signals.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/metrics.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/insights.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/hooks.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/categories.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/generator.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/ads.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/countries-data.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/competitors.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/reports.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/help.js') }}?v={{ app_version }}"></script>
+</body>
+</html>

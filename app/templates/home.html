@@ -1,0 +1,53 @@
+<h1 data-i18n="home.title">Главная</h1>
+<p class="subtitle" data-i18n="home.subtitle">Что сегодня по плану, короткий срез цифр и статус по обоим направлениям — без лишних кликов.</p>
+
+<div class="card" id="home-signals-card">
+  <div class="toolbar">
+    <h2 style="margin:0; display:flex; align-items:center; gap:8px;">
+      <span data-i18n="home.signals.heading">Сигнали</span>
+      <span class="tab-badge" id="home-signals-badge" style="display:none;"></span>
+    </h2>
+    <button class="btn secondary" id="btn-home-signals-all" data-i18n="home.signals.view_all">Усі сигнали</button>
+  </div>
+  <div id="home-signals-empty" class="empty-state" data-i18n="home.signals.empty" style="display:none;">Сигналів немає — усе спокійно.</div>
+  <div id="home-signals-preview" class="signals-list"></div>
+</div>
+
+<div class="card">
+  <h2 data-i18n="home.plan.heading">Мой план на день</h2>
+  <div class="toolbar" style="margin-bottom:14px;">
+    <div style="display:flex; gap:8px; flex:1; min-width:220px;">
+      <input type="text" id="new-task-text" data-i18n-placeholder="home.plan.placeholder" placeholder="Новая задача..." style="flex:1;">
+      <button class="btn" id="btn-add-task" data-i18n="home.plan.add_btn">Добавить</button>
+    </div>
+  </div>
+  <div id="plan-status" class="status-box error"></div>
+  <div id="plan-empty" class="empty-state" data-i18n="home.plan.empty" style="display:none;">На сегодня задач нет. Добавь первую выше.</div>
+  <ul id="plan-list" class="plan-list"></ul>
+</div>
+
+<div class="card">
+  <h2 data-i18n="home.stats.heading">Быстрая статистика</h2>
+  <div id="stats-content" class="top-cards"></div>
+
+  <div class="ads-quick-stats">
+    <div class="ads-quick-stats-title" data-i18n="home.stats.ads_heading">Активная реклама</div>
+    <div id="stats-ads" class="top-cards"></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 data-i18n="home.status.heading">Статус по направлениям</h2>
+  <div class="direction-status-grid">
+    <div class="direction-status">
+      <div class="direction-status-title" data-i18n="home.status.smm.title">SMM (органика)</div>
+      <div id="status-smm-body" class="direction-status-body"></div>
+      <button class="btn secondary direction-status-btn" id="btn-goto-metrics" data-i18n="home.status.smm.btn">Перейти в Метрики</button>
+    </div>
+    <div class="direction-status">
+      <div class="direction-status-title" data-i18n="home.status.ads.title">Таргет (реклама)</div>
+      <div id="status-ads-body" class="direction-status-body"></div>
+      <button class="btn secondary direction-status-btn" id="btn-goto-ads" data-i18n="home.status.ads.btn">Перейти в Рекламу</button>
+    </div>
+  </div>
+</div>

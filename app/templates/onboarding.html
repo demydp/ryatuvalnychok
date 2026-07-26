@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Рятувальничок — налаштування</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/onboarding.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Questrial&display=swap" rel="stylesheet">
+</head>
+<body class="onboarding-body">
+  <header class="topbar">
+    <div class="brand">Рятуваль<span>ничок</span></div>
+    <div class="lang-switch" role="group" aria-label="Язык интерфейса / Мова інтерфейсу">
+      <button type="button" class="lang-btn" data-lang="ru">РУС</button>
+      <button type="button" class="lang-btn" data-lang="uk">УКР</button>
+    </div>
+  </header>
+
+  <main class="onboarding-main">
+    <div class="onboarding-card">
+      <div class="onboarding-progress">
+        <div class="onboarding-progress-bar"><div class="onboarding-progress-fill" id="ob-progress-fill"></div></div>
+        <span id="ob-progress-label"></span>
+      </div>
+
+      <!-- Шаг 0: приветствие -->
+      <section class="ob-step" data-step="welcome">
+        <h1 data-i18n="onboarding.step.welcome.title">Добро пожаловать!</h1>
+        <p class="subtitle" data-i18n="onboarding.step.welcome.text">...</p>
+        <div class="ob-actions">
+          <button class="btn" id="ob-start-btn" data-i18n="onboarding.step.welcome.start_btn">Начать настройку</button>
+        </div>
+      </section>
+
+      <!-- Шаг 1: Instagram -->
+      <section class="ob-step" data-step="ig" style="display:none;">
+        <h1 data-i18n="settings.ig.heading">Instagram</h1>
+        <div class="field">
+          <label for="ob-ig-token" data-i18n="settings.ig.token_label">Instagram Access Token</label>
+          <input type="password" id="ob-ig-token" placeholder="EAAG...">
+          <div class="hint" data-i18n-html="settings.ig.token_hint"></div>
+        </div>
+        <button class="btn" id="ob-test-ig" data-i18n="settings.ig.test_btn">Проверить подключение</button>
+        <div id="ob-ig-status" class="status-box"></div>
+        <div id="ob-ig-account-choice" class="account-choice" style="display:none;"></div>
+        <div class="ob-actions">
+          <button class="btn secondary ob-back" data-i18n="onboarding.nav.back">Назад</button>
+          <button class="btn ob-next" id="ob-next-ig" disabled data-i18n="onboarding.nav.next">Далее</button>
+        </div>
+      </section>
+
+      <!-- Шаг 2: рекламный кабинет -->
+      <section class="ob-step" data-step="ads" style="display:none;">
+        <h1 data-i18n="settings.ads.heading">Реклама (Facebook Marketing API)</h1>
+        <div class="field">
+          <label for="ob-ads-account" data-i18n="settings.ads.account_label">Ad Account ID</label>
+          <input type="text" id="ob-ads-account" placeholder="act_1234567890">
+          <div class="hint" data-i18n-html="settings.ads.account_hint"></div>
+        </div>
+        <button class="btn" id="ob-test-ads" data-i18n="settings.ads.test_btn">Проверить рекламный доступ</button>
+        <div id="ob-ads-status" class="status-box"></div>
+        <div class="ob-actions">
+          <button class="btn secondary ob-back" data-i18n="onboarding.nav.back">Назад</button>
+          <button class="btn ob-next" id="ob-next-ads" disabled data-i18n="onboarding.nav.next">Далее</button>
+        </div>
+      </section>
+
+      <!-- Шаг 3: Anthropic -->
+      <section class="ob-step" data-step="anthropic" style="display:none;">
+        <h1 data-i18n="settings.anthropic.heading">Anthropic (Claude)</h1>
+        <div class="field">
+          <label for="ob-anthropic-key" data-i18n="settings.anthropic.key_label">Anthropic API Key</label>
+          <input type="password" id="ob-anthropic-key" placeholder="sk-ant-...">
+          <div class="hint" data-i18n-html="settings.anthropic.key_hint"></div>
+        </div>
+        <button class="btn" id="ob-test-anthropic" data-i18n="settings.anthropic.test_btn">Проверить ключ</button>
+        <div id="ob-anthropic-status" class="status-box"></div>
+        <div class="ob-actions">
+          <button class="btn secondary ob-back" data-i18n="onboarding.nav.back">Назад</button>
+          <button class="btn ob-next" id="ob-next-anthropic" disabled data-i18n="onboarding.nav.next">Далее</button>
+        </div>
+      </section>
+
+      <!-- Шаг 4: модель Whisper -->
+      <section class="ob-step" data-step="model" style="display:none;">
+        <h1 data-i18n="onboarding.step.model.title">Модель распознавания речи</h1>
+        <p class="subtitle" data-i18n="onboarding.step.model.text">...</p>
+        <div class="ob-model-progress" id="ob-model-progress" style="display:none;">
+          <div class="onboarding-progress-bar"><div class="onboarding-progress-fill" id="ob-model-fill"></div></div>
+          <span id="ob-model-label"></span>
+        </div>
+        <div id="ob-model-status" class="status-box"></div>
+        <div class="ob-actions">
+          <button class="btn secondary ob-back" data-i18n="onboarding.nav.back">Назад</button>
+          <button class="btn secondary" id="ob-skip-model" data-i18n="onboarding.step.model.skip">Пропустить</button>
+          <button class="btn" id="ob-download-model" data-i18n="onboarding.step.model.download_btn">Скачать модель</button>
+          <button class="btn ob-next" id="ob-next-model" style="display:none;" data-i18n="onboarding.nav.next">Далее</button>
+        </div>
+      </section>
+
+      <!-- Шаг 5: готово -->
+      <section class="ob-step" data-step="done" style="display:none;">
+        <h1 data-i18n="onboarding.step.done.title">Готово!</h1>
+        <p class="subtitle" data-i18n="onboarding.step.done.text">...</p>
+        <div class="ob-actions">
+          <button class="btn" id="ob-finish-btn" data-i18n="onboarding.nav.finish">Открыть Рятувальничок</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>window.__I18N__ = {{ i18n | tojson }};</script>
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/onboarding.js') }}"></script>
+</body>
+</html>

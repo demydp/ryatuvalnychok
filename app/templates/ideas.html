@@ -1,0 +1,35 @@
+<h1 data-i18n="ideas.title">Ідеї</h1>
+<p class="subtitle" data-i18n="ideas.subtitle">5-7 готових ідей контенту від Opus на основі ваших реальних даних — топ-рілсів, рубрик і вердиктів.</p>
+
+<div id="ideas-empty" class="empty-state" style="display:none;">
+  <p data-i18n="ideas.empty.title">Ідеї вимкнено — немає Anthropic-ключа.</p>
+  <p class="hint" data-i18n="ideas.empty.text">Додайте Anthropic API ключ у Налаштуваннях, щоб генерувати ідеї.</p>
+  <button class="btn" id="btn-ideas-go-settings" data-i18n="ideas.empty.btn">Перейти в налаштування</button>
+</div>
+
+<div id="ideas-main" style="display:none;">
+  <div class="card">
+    <div class="toolbar">
+      <div class="field" style="width:180px;">
+        <label for="ideas-model" data-i18n="ideas.model.label">Модель</label>
+        <select id="ideas-model">
+          <option value="claude-opus-4-8" data-i18n="ideas.model.opus">Opus</option>
+          <option value="claude-sonnet-4-6" data-i18n="ideas.model.sonnet">Sonnet</option>
+          <option value="claude-haiku-4-5" data-i18n="ideas.model.haiku">Haiku</option>
+        </select>
+      </div>
+      <button class="btn" id="btn-ideas-generate" data-i18n="ideas.btn.generate">Згенерувати ідеї</button>
+    </div>
+    <div id="ideas-status" class="status-box"></div>
+  </div>
+
+  <div id="ideas-list" class="ideas-list"></div>
+
+  <div class="card">
+    <h2 data-i18n="ideas.bank.title">Банк ідей</h2>
+    <div id="ideas-bank-empty" class="empty-state" style="display:none;">
+      <p data-i18n="ideas.bank.empty">Ще немає збережених ідей — натисніть «Зберегти» на картці ідеї.</p>
+    </div>
+    <div id="ideas-bank-list" class="ideas-list"></div>
+  </div>
+</div>
