@@ -5,6 +5,7 @@ from datetime import timedelta
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 from flask_login import LoginManager, current_user, login_user
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.i18n import load_translations, t
 from app.logging_setup import setup_logging
@@ -15,16 +16,50 @@ from app.version import __version__
 ANON_SESSION_DURATION = timedelta(days=365)
 
 
+def _is_production() -> bool:
+    """Той самий сигнал, що вже розрізняє SQLite/Postgres у app/db.py::get_database_uri() —
+    DATABASE_PUBLIC_URL/DATABASE_URL заданий лише на Railway, ніколи в локальній розробці.
+    Перевикористовуємо його замість заведення окремої змінної оточення (Этап 3: продові
+    налаштування — secure cookies, HTTPS, жорсткі перевірки секретів — вмикаються тим самим
+    "ми на Railway", яким уже керується вибір БД)."""
+    return bool(os.environ.get("DATABASE_PUBLIC_URL") or os.environ.get("DATABASE_URL"))
+
+
 def create_app():
     load_dotenv()  # DATABASE_PUBLIC_URL/ENCRYPTION_KEY/SECRET_KEY з .env (Railway їх задає як env vars напряму)
 
     setup_logging()
     logger = logging.getLogger("reels_dashboard")
 
+    is_production = _is_production()
+
     app = Flask(__name__)
-    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or _dev_secret_key_fallback(logger)
+    # Railway (як і будь-який PaaS) термінує HTTPS на своєму реверс-проксі й передає застосунку
+    # звичайний HTTP — без ProxyFix Flask вважав би кожен запит незахищеним (request.scheme,
+    # url_for(_external=True) тощо), хоча в браузері адреса вже https://. x_for/x_proto=1 —
+    # довіряємо рівно ОДНОМУ хопу проксі (сам Railway), як і рекомендує документація Werkzeug.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or _dev_secret_key_fallback(logger, is_production)
     app.config["REMEMBER_COOKIE_DURATION"] = ANON_SESSION_DURATION
     app.config["REMEMBER_COOKIE_HTTPONLY"] = True
+    app.config["REMEMBER_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    # Secure-прапорець (cookie тільки по HTTPS) — лише на проді: локально (http://127.0.0.1)
+    # браузер такий cookie просто відкинув би, і залогінитись під час розробки стало б неможливо.
+    app.config["SESSION_COOKIE_SECURE"] = is_production
+    app.config["REMEMBER_COOKIE_SECURE"] = is_production
+    if is_production:
+        app.config["DEBUG"] = False
+        if not os.environ.get("ENCRYPTION_KEY"):
+            # Падаємо ще на старті процесу (до першого запиту), а не на першому шифруванні
+            # секрету десь усередині випадкового HTTP-запиту (app/crypto.py) — незрозуміла
+            # помилка в середині обробки запиту гірша за чіткий крах під час деплою.
+            raise RuntimeError(
+                "ENCRYPTION_KEY не задано в оточенні Railway — обов'язково для продакшену. "
+                "Згенеруйте: python -c \"from app.crypto import generate_key; print(generate_key())\""
+            )
 
     from app.db import db, init_db
 
@@ -112,14 +147,28 @@ def create_app():
         logger.exception("Необработанная ошибка: %s", e)
         return jsonify({"error": t("common.msg.unexpected_error", error=str(e))}), 500
 
-    from app.scheduler import start_scheduler
+    # RUN_SCHEDULER (Этап 3): за замовчуванням увімкнено — так само, як і завжди (desktop,
+    # flask run, один gunicorn-воркер на Railway). Явно вимикається (RUN_SCHEDULER=0) лише якщо
+    # колись знадобиться кілька gunicorn-воркерів АБО окремий процес-планувальник — інакше
+    # кожен воркер підняв би СВІЙ BackgroundScheduler і всі cron/interval job'и дублювалися б
+    # (двічі продовжений токен, подвійний денний звіт тощо). Задеплоєний Procfile навмисно
+    # тримає --workers 1, тому дублювання не станеться навіть без цього прапорця — він лише
+    # запобіжник на майбутнє масштабування.
+    if os.environ.get("RUN_SCHEDULER", "1") != "0":
+        from app.scheduler import start_scheduler
 
-    start_scheduler(app)
+        start_scheduler(app)
 
     return app
 
 
-def _dev_secret_key_fallback(logger) -> str:
+def _dev_secret_key_fallback(logger, is_production: bool) -> str:
+    if is_production:
+        raise RuntimeError(
+            "SECRET_KEY не задано в оточенні Railway — обов'язково для продакшену (без нього "
+            "сесії/remember-cookie небезпечні й не переживуть рестарт процесу). Згенеруйте: "
+            "python -c \"import secrets; print(secrets.token_hex(32))\""
+        )
     logger.warning(
         "SECRET_KEY не задано в оточенні — використовую фіксований dev-ключ (сесії НЕ будуть "
         "безпечними/persistent між рестартами процесу). Обов'язково задайте SECRET_KEY у "
