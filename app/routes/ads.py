@@ -220,7 +220,7 @@ def run_ads_sync(period: str = DEFAULT_PERIOD, date_from: str = None, date_to: s
                 "start_time": adset.get("start_time"),
                 "end_time": adset.get("end_time"),
                 "attribution": format_attribution(adset.get("attribution_spec")),
-                "targeting": format_targeting(adset.get("targeting")),
+                "targeting": format_targeting(adset.get("targeting"), adset.get("targeting_automation")),
                 "metrics": a_metrics,
                 "result": a_result,
                 "kpi_verdicts": a_kpi_verdicts,
@@ -385,7 +385,7 @@ def get_placement_breakdown():
     if adset_id:
         try:
             adset_data = fetch_adset_targeting(token, adset_id)
-            placement_label = format_targeting(adset_data.get("targeting")).get("placement")
+            placement_label = format_targeting(adset_data.get("targeting"), adset_data.get("targeting_automation")).get("placement")
             placement_mode = "auto" if placement_label and placement_label.startswith("Авто") else "manual"
         except AdsAPIError:
             placement_label = None
@@ -565,7 +565,7 @@ def _analyze_adset(
     "дешёвого" сегмента с реальной органической аудиторией (см. app/ads_audience.py)."""
     adset_info = fetch_adset_targeting(token, adset_id)
     raw_targeting = adset_info.get("targeting") or {}
-    targeting_display = format_targeting(raw_targeting)
+    targeting_display = format_targeting(raw_targeting, adset_info.get("targeting_automation"))
 
     adset_row, _metrics_error = fetch_entity_metrics(token, adset_id, time_range_params)
     adset_metrics = format_metrics_row(adset_row or {})

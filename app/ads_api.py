@@ -610,7 +610,8 @@ ADSET_FIELDS = (
     "attribution_spec,destination_type,is_dynamic_creative,"
     "targeting{age_min,age_max,genders,geo_locations,flexible_spec,custom_audiences,"
     "excluded_custom_audiences,publisher_platforms,facebook_positions,instagram_positions,"
-    "device_platforms,targeting_optimization}"
+    "device_platforms,targeting_optimization},"
+    "targeting_automation{advantage_audience}"
 )
 
 AD_FIELDS = (
@@ -764,7 +765,7 @@ def estimate_period_days(period: str, date_from: str = None, date_to: str = None
     return PERIOD_PRESET_DAYS.get(period)
 
 
-def format_targeting(targeting: dict) -> dict:
+def format_targeting(targeting: dict, targeting_automation: dict = None) -> dict:
     targeting = targeting or {}
 
     genders = targeting.get("genders") or []
@@ -779,7 +780,13 @@ def format_targeting(targeting: dict) -> dict:
 
     age_min = targeting.get("age_min")
     age_max = targeting.get("age_max")
-    age_label = f"{age_min or '?'}–{age_max or '?'}" if (age_min or age_max) else "не задано"
+    if age_min or age_max:
+        age_label = f"{age_min or '?'}–{age_max or '?'}"
+        advantage_audience = (targeting_automation or {}).get("advantage_audience")
+        if advantage_audience in (1, "1", True):
+            age_label += " · Advantage+ розширює заданий вік, максимум не жорсткий"
+    else:
+        age_label = "не задано"
 
     geo = targeting.get("geo_locations") or {}
     geo_parts = []
@@ -1395,8 +1402,15 @@ def fetch_learning_stage(access_token: str, adset_id: str):
 
 def fetch_adset_targeting(access_token: str, adset_id: str) -> dict:
     """Имя и сырой targeting группы (для сравнения выигрышного сегмента с настроенным таргетингом)."""
-    data = _get(f"{GRAPH_BASE}/{adset_id}", {"fields": "name,targeting", "access_token": access_token})
-    return {"name": data.get("name", ""), "targeting": data.get("targeting") or {}}
+    data = _get(
+        f"{GRAPH_BASE}/{adset_id}",
+        {"fields": "name,targeting,targeting_automation{advantage_audience}", "access_token": access_token},
+    )
+    return {
+        "name": data.get("name", ""),
+        "targeting": data.get("targeting") or {},
+        "targeting_automation": data.get("targeting_automation") or {},
+    }
 
 
 def fetch_entity_metrics(access_token: str, entity_id: str, time_range_params: dict):
