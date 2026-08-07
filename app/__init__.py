@@ -7,6 +7,7 @@ from flask import Flask, jsonify, render_template, request
 from flask_login import LoginManager, current_user, login_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from app.deploy_mode import is_web_deployment
 from app.i18n import load_translations, t
 from app.logging_setup import setup_logging
 from app.version import __version__
@@ -17,12 +18,14 @@ ANON_SESSION_DURATION = timedelta(days=365)
 
 
 def _is_production() -> bool:
-    """Той самий сигнал, що вже розрізняє SQLite/Postgres у app/db.py::get_database_uri() —
-    DATABASE_PUBLIC_URL/DATABASE_URL заданий лише на Railway, ніколи в локальній розробці.
-    Перевикористовуємо його замість заведення окремої змінної оточення (Этап 3: продові
-    налаштування — secure cookies, HTTPS, жорсткі перевірки секретів — вмикаються тим самим
-    "ми на Railway", яким уже керується вибір БД)."""
-    return bool(os.environ.get("DATABASE_PUBLIC_URL") or os.environ.get("DATABASE_URL"))
+    """Той самий сигнал, що вже розрізняє SQLite/Postgres у app/db.py::get_database_uri()
+    (винесений в app/deploy_mode.py::is_web_deployment(), щоб ним же гейтились і
+    desktop-only ендпоінти в app/routes/settings.py/updates.py) — DATABASE_PUBLIC_URL/
+    DATABASE_URL заданий лише на Railway, ніколи в локальній розробці. Перевикористовуємо
+    його замість заведення окремої змінної оточення (Этап 3: продові налаштування — secure
+    cookies, HTTPS, жорсткі перевірки секретів — вмикаються тим самим "ми на Railway", яким
+    уже керується вибір БД)."""
+    return is_web_deployment()
 
 
 def create_app():
@@ -85,14 +88,20 @@ def create_app():
     from app.routes.ads import ads_bp
     from app.routes.reports import reports_bp
     from app.routes.onboarding import onboarding_bp
-    from app.routes.updates import updates_bp
     from app.routes.companion import companion_bp
     from app.routes.ideas import ideas_bp
     from app.routes.signals import signals_bp
     from app.routes.projects import projects_bp
 
     app.register_blueprint(onboarding_bp, url_prefix="/api/onboarding")
-    app.register_blueprint(updates_bp, url_prefix="/api/updates")
+    if not is_production:
+        # Самообновлення через встановлювач (app/update_checker.py) — має сенс лише для
+        # desktop-збірки з ярликом на диску. На Railway (спільний веб-сервер, анонімний вхід)
+        # /api/updates/apply качав би довільний .exe і намагався запустити інсталятор —
+        # тому в проді роут навіть не реєструється, а не просто ховається за перевіркою ключа.
+        from app.routes.updates import updates_bp
+
+        app.register_blueprint(updates_bp, url_prefix="/api/updates")
     app.register_blueprint(home_bp, url_prefix="/api/home")
     app.register_blueprint(settings_bp, url_prefix="/api/settings")
     app.register_blueprint(metrics_bp, url_prefix="/api/metrics")

@@ -1,12 +1,11 @@
 import anthropic
 from flask import Blueprint, jsonify, request
 
-from app.app_restart import can_restart, restart_app
 from app.config_store import load_config, save_config
+from app.deploy_mode import is_web_deployment
 from app.hook_classifier import MODEL_ID as ANTHROPIC_MODEL_ID
 from app.i18n import t
 from app.instagram_api import InstagramAPIError, get_account_info, resolve_ig_user
-from app.network_info import PORT, get_local_ip
 from app.project_store import get_effective_config, get_project, update_active_project, update_project
 from app.token_refresh import check_token_status, refresh_if_needed
 
@@ -32,7 +31,15 @@ def get_settings():
 
 @settings_bp.route("/network-info", methods=["GET"])
 def network_info():
-    """Локальный IP + порт — чтобы открыть дашборд с телефона в той же Wi-Fi сети."""
+    """Локальный IP + порт — чтобы открыть дашборд с телефона в той же Wi-Fi сети.
+    Desktop-only (см. app/network_info.py): на веб-деплое у каждого пользователя свой
+    аккаунт на общем сервере, "локальная сеть этого компьютера" тут не имеет смысла —
+    роут отдаёт 404, не импортируя и не трогая network_info.py вовсе."""
+    if is_web_deployment():
+        return jsonify({"error": "Not available in web deployment"}), 404
+
+    from app.network_info import PORT, get_local_ip
+
     local_ip = get_local_ip()
     return jsonify(
         {
@@ -214,7 +221,15 @@ def refresh_token():
 @settings_bp.route("/restart", methods=["POST"])
 def restart():
     """Кнопка "Перезапустить приложение" в Настройках — гарантированно поднимает свежий
-    процесс поверх любых правок в коде, без ручного поиска и убийства pythonw.exe."""
+    процесс поверх любых правок в коде, без ручного поиска и убийства pythonw.exe.
+    Desktop-only: на веб-деплое это один общий gunicorn-процесс на ВСЕХ анонимных
+    пользователей — restart_app() убил бы его для всех по запросу любого из них. Роут
+    отдаёт 404, не импортируя и не трогая app_restart.py вовсе (см. app/deploy_mode.py)."""
+    if is_web_deployment():
+        return jsonify({"error": "Not available in web deployment"}), 404
+
+    from app.app_restart import can_restart, restart_app
+
     if not can_restart():
         return jsonify({"error": t("settings.msg.restart_unavailable_frozen")}), 400
     restart_app()
