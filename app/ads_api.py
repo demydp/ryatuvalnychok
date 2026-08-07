@@ -21,7 +21,7 @@ import json
 import random
 import threading
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
@@ -95,6 +95,33 @@ OBJECTIVE_RESULT_ACTIONS = {
 }
 # У Узнаваемости/Охвата нет отдельного "результата" — по TZ результат = сам охват/CPM.
 NO_RESULT_OBJECTIVES = {"OUTCOME_AWARENESS", "BRAND_AWARENESS", "REACH"}
+
+# optimization_goal (поле AdSet) — то, что РЕАЛЬНО настроено для оптимизации показов, и точнее
+# objective кампании: один и тот же objective (особенно OUTCOME_ENGAGEMENT) может означать
+# и "вовлечённость с постом", и "начатые переписки" — Meta различает это только через
+# optimization_goal. Без этого extract_result_metric всегда брал первый совпавший action_type
+# по OBJECTIVE_RESULT_ACTIONS (обычно post_engagement, он почти всегда ненулевой), даже когда
+# цель кампании — переписки, и показывал вовлечённость с её ценой вместо начатых переписок с их
+# ценой. Проверяется ПЕРЕД OBJECTIVE_RESULT_ACTIONS (см. extract_result_metric), т.к. это более
+# точный сигнал; если optimization_goal неизвестен/не сопоставлен — падаем обратно на objective.
+OPTIMIZATION_GOAL_RESULT_ACTIONS = {
+    "CONVERSATIONS": (["onsite_conversion.messaging_conversation_started_7d"], "Начатые переписки"),
+    "POST_ENGAGEMENT": (["post_engagement"], "Вовлечённость"),
+    "LINK_CLICKS": (["link_click"], "Клики по ссылке"),
+    "LANDING_PAGE_VIEWS": (["landing_page_view", "link_click"], "Просмотры целевой страницы"),
+    "LEAD_GENERATION": (["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"], "Лиды"),
+    "QUALITY_LEAD": (["lead", "onsite_conversion.lead_grouped", "offsite_conversion.fb_pixel_lead"], "Лиды"),
+    "OFFSITE_CONVERSIONS": (["omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"], "Покупки"),
+    "VALUE": (["omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"], "Покупки"),
+    "QUALITY_CALL": (["onsite_conversion.call_confirm"], "Звонки"),
+    "APP_INSTALLS": (["omni_app_install", "mobile_app_install"], "Установки приложения"),
+    "THRUPLAY": (["video_view"], "Просмотры видео"),
+    "PAGE_LIKES": (["like"], "Лайки страницы"),
+}
+# optimization_goal без отдельного "результата" (охват/показы как таковые — вся суть) —
+# приоритетнее NO_RESULT_OBJECTIVES там, где objective этого не выдаёт (например,
+# OUTCOME_TRAFFIC с целью оптимизации REACH — редко, но бывает).
+OPTIMIZATION_GOAL_NO_RESULT = {"REACH", "IMPRESSIONS"}
 
 CTA_LABELS = {
     "LEARN_MORE": "Подробнее",
@@ -245,6 +272,36 @@ OBJECTIVE_RESULT_EXPLANATION = {
     "OUTCOME_APP_PROMOTION": "Продвижение приложения → результат = установки, стоимость — цена установки",
     "APP_INSTALLS": "Продвижение приложения → результат = установки, стоимость — цена установки",
 }
+
+# То же самое объяснение, но по optimization_goal — приоритетнее OBJECTIVE_RESULT_EXPLANATION
+# (см. result_explanation() ниже) по той же причине, что и OPTIMIZATION_GOAL_RESULT_ACTIONS:
+# один objective=OUTCOME_ENGAGEMENT может означать и вовлечённость, и переписки.
+OPTIMIZATION_GOAL_RESULT_EXPLANATION = {
+    "CONVERSATIONS": "Переписки → результат = начатые переписки, стоимость — цена за переписку",
+    "POST_ENGAGEMENT": "Вовлечённость → результат = вовлечённость с постом, стоимость — цена за вовлечение",
+    "LINK_CLICKS": "Трафик → результат = клики по ссылке, стоимость — CPC",
+    "LANDING_PAGE_VIEWS": "Трафик → результат = просмотры целевой страницы",
+    "LEAD_GENERATION": "Лиды → результат = заявки (лиды), стоимость — CPL",
+    "QUALITY_LEAD": "Лиды → результат = заявки (лиды), стоимость — CPL",
+    "OFFSITE_CONVERSIONS": "Продажи → результат = покупки, стоимость/окупаемость — CPA/ROAS",
+    "VALUE": "Продажи → результат = покупки, стоимость/окупаемость — CPA/ROAS",
+    "QUALITY_CALL": "Звонки → результат = подтверждённые звонки",
+    "APP_INSTALLS": "Продвижение приложения → результат = установки, стоимость — цена установки",
+    "THRUPLAY": "Просмотры видео → результат = досмотры (ThruPlay)",
+    "PAGE_LIKES": "Лайки страницы → результат = лайки",
+    "REACH": "Охват → результат = охват и CPM",
+    "IMPRESSIONS": "Охват → результат = охват и CPM",
+}
+
+
+def result_explanation(objective: str, optimization_goal: str = None) -> str:
+    """Тот же приоритет optimization_goal -> objective, что и extract_result_metric() —
+    текстовое объяснение "что считается результатом" не должно расходиться с самим расчётом."""
+    return (
+        OPTIMIZATION_GOAL_RESULT_EXPLANATION.get(optimization_goal)
+        or OBJECTIVE_RESULT_EXPLANATION.get(objective)
+        or t("ads.msg.no_result_explanation")
+    )
 
 # Диагностика релевантности Meta (этап "Аудитория: та или не та?") — доступна только на
 # уровне объявления (ad), т.к. сравнивает конкретный креатив/оффер с конкурентами за ту же
@@ -461,23 +518,26 @@ def _video_metric_value(field_list):
         return None
 
 
-def extract_result_metric(objective: str, metrics_row: dict) -> dict:
+def extract_result_metric(objective: str, metrics_row: dict, optimization_goal: str = None) -> dict:
     """
-    Считает "результат" и "стоимость результата" по цели кампании — честно, без выдумывания.
-    Возвращает {"label":..., "value":..., "cost_per_result":..., "roas":..., "note": "..."|None}.
+    Считает "результат" и "стоимость результата" по ЦЕЛИ ОПТИМИЗАЦИИ группы (optimization_goal —
+    точнее, т.к. отличает, например, "вовлечённость" от "переписок" внутри одного и того же
+    objective=OUTCOME_ENGAGEMENT), а если её нет/не передана — по цели кампании (objective).
+    Честно, без выдумывания. Возвращает {"label":..., "value":..., "cost_per_result":..., "roas":..., "note": "..."|None}.
     """
-    if not objective:
+    if not objective and not optimization_goal:
         return {"label": None, "value": None, "cost_per_result": None, "roas": None,
                 "note": "нет данных (цель кампании неизвестна)"}
 
-    if objective in NO_RESULT_OBJECTIVES:
+    if objective in NO_RESULT_OBJECTIVES or optimization_goal in OPTIMIZATION_GOAL_NO_RESULT:
         return {"label": "Охват/CPM — см. метрики выше", "value": None, "cost_per_result": None,
                 "roas": None, "note": "для цели «Узнаваемость» результатом считается охват и CPM, отдельного поля «результат» нет"}
 
-    mapping = OBJECTIVE_RESULT_ACTIONS.get(objective)
+    mapping = OPTIMIZATION_GOAL_RESULT_ACTIONS.get(optimization_goal) or OBJECTIVE_RESULT_ACTIONS.get(objective)
     if not mapping:
+        goal_part = f", цель оптимизации «{optimization_goal}»" if optimization_goal else ""
         return {"label": None, "value": None, "cost_per_result": None, "roas": None,
-                "note": f"нет данных (цель «{objective}» не сопоставлена с типом результата — не выдумываем)"}
+                "note": f"нет данных (цель «{objective}»{goal_part} не сопоставлена с типом результата — не выдумываем)"}
 
     candidates, label = mapping
     actions = metrics_row.get("actions") or []
@@ -520,6 +580,19 @@ def extract_result_metric(objective: str, metrics_row: dict) -> dict:
         "roas": roas,
         "note": note,
     }
+
+
+def campaign_optimization_goal(campaign: dict) -> str:
+    """optimization_goal — поле AdSet, insights-строка кампании его не содержит напрямую, а
+    extract_result_metric на уровне кампании нужен более точный сигнал, чем один только
+    objective (см. OPTIMIZATION_GOAL_RESULT_ACTIONS выше). Берём самый частый optimization_goal
+    среди её groups (campaign["_adsets"], уже заполнено fetch_structure/fetch_single_campaign) —
+    в норме у всех групп кампании он один и тот же, "самый частый" лишь честно разруливает
+    смешанные кампании, не выдумывая единственно верный ответ."""
+    goals = [a.get("optimization_goal") for a in campaign.get("_adsets", []) if a.get("optimization_goal")]
+    if not goals:
+        return None
+    return Counter(goals).most_common(1)[0][0]
 
 
 def format_metrics_row(row: dict) -> dict:
@@ -1178,7 +1251,7 @@ def fetch_breakdown(access_token: str, entity_id: str, dimension: str, time_rang
     return merged_rows, None
 
 
-def format_breakdown_row(row: dict, dimension: str, objective: str) -> dict:
+def format_breakdown_row(row: dict, dimension: str, objective: str, optimization_goal: str = None) -> dict:
     companion = DELIVERY_BREAKDOWN_COMPANION.get(dimension)
     label = row.get(dimension) or "нет данных"
     if companion and row.get(companion):
@@ -1186,11 +1259,11 @@ def format_breakdown_row(row: dict, dimension: str, objective: str) -> dict:
     return {
         "label": label,
         "metrics": format_metrics_row(row),
-        "result": extract_result_metric(objective, row),
+        "result": extract_result_metric(objective, row, optimization_goal),
     }
 
 
-def fetch_all_breakdowns(access_token: str, entity_id: str, objective: str, time_range_params: dict):
+def fetch_all_breakdowns(access_token: str, entity_id: str, objective: str, time_range_params: dict, optimization_goal: str = None):
     """Возвращает (breakdowns_by_dimension, unsupported_reasons) — честно пропускает разбивки,
     которые Meta не отдаёт для этой ноды/периода, не роняя остальные."""
     breakdowns = {}
@@ -1200,11 +1273,11 @@ def fetch_all_breakdowns(access_token: str, entity_id: str, objective: str, time
         if error:
             unsupported[dimension] = error
             continue
-        breakdowns[dimension] = [format_breakdown_row(row, dimension, objective) for row in rows]
+        breakdowns[dimension] = [format_breakdown_row(row, dimension, objective, optimization_goal) for row in rows]
     return breakdowns, unsupported
 
 
-def fetch_timeseries(access_token: str, entity_id: str, objective: str, time_range_params: dict, time_increment: int = 1) -> list:
+def fetch_timeseries(access_token: str, entity_id: str, objective: str, time_range_params: dict, time_increment: int = 1, optimization_goal: str = None) -> list:
     """Дневная (или недельная) динамика по одной кампании/группе — для графиков и сатурации."""
     params = {
         "time_increment": time_increment,
@@ -1232,7 +1305,7 @@ def fetch_timeseries(access_token: str, entity_id: str, objective: str, time_ran
             "date_start": row.get("date_start"),
             "date_stop": row.get("date_stop"),
             "metrics": format_metrics_row(row),
-            "result": extract_result_metric(objective, row),
+            "result": extract_result_metric(objective, row, optimization_goal),
         }
         for row in rows
     ]
@@ -1401,15 +1474,19 @@ def fetch_learning_stage(access_token: str, adset_id: str):
 
 
 def fetch_adset_targeting(access_token: str, adset_id: str) -> dict:
-    """Имя и сырой targeting группы (для сравнения выигрышного сегмента с настроенным таргетингом)."""
+    """Имя, сырой targeting и optimization_goal группы — targeting для сравнения выигрышного
+    сегмента с настроенным таргетингом, optimization_goal для честного extract_result_metric
+    (см. OPTIMIZATION_GOAL_RESULT_ACTIONS) в местах, куда группа приходит только по id
+    (без всего дерева fetch_structure, где optimization_goal уже есть в самой группе)."""
     data = _get(
         f"{GRAPH_BASE}/{adset_id}",
-        {"fields": "name,targeting,targeting_automation{advantage_audience}", "access_token": access_token},
+        {"fields": "name,targeting,targeting_automation{advantage_audience},optimization_goal", "access_token": access_token},
     )
     return {
         "name": data.get("name", ""),
         "targeting": data.get("targeting") or {},
         "targeting_automation": data.get("targeting_automation") or {},
+        "optimization_goal": data.get("optimization_goal"),
     }
 
 
@@ -1454,10 +1531,10 @@ def fetch_ad_creative_detail(access_token: str, ad_id: str) -> dict:
     }
 
 
-def _diagnostics_from_row(objective: str, row: dict) -> dict:
+def _diagnostics_from_row(objective: str, row: dict, optimization_goal: str = None) -> dict:
     return {
         "metrics": format_metrics_row(row),
-        "result": extract_result_metric(objective, row),
+        "result": extract_result_metric(objective, row, optimization_goal),
         "rankings": {
             "quality": _ranking_label(row.get("quality_ranking")),
             "engagement_rate": _ranking_label(row.get("engagement_rate_ranking")),
@@ -1469,7 +1546,7 @@ def _diagnostics_from_row(objective: str, row: dict) -> dict:
     }
 
 
-def fetch_ad_diagnostics(access_token: str, ad_id: str, objective: str, time_range_params: dict):
+def fetch_ad_diagnostics(access_token: str, ad_id: str, objective: str, time_range_params: dict, optimization_goal: str = None):
     """Метрики + результат + ranking-диагностика одного объявления за период.
     Возвращает (dict_or_None, error_message_or_None).
     Точечный запрос — там, где нужно ровно одно объявление. Для целой группы (несколько
@@ -1482,10 +1559,10 @@ def fetch_ad_diagnostics(access_token: str, ad_id: str, objective: str, time_ran
         return None, error.get("message", t("ads.msg.diagnostics_unavailable"))
     rows = data.get("data", [])
     row = rows[0] if rows else {}
-    return _diagnostics_from_row(objective, row), None
+    return _diagnostics_from_row(objective, row, optimization_goal), None
 
 
-def fetch_ad_diagnostics_by_adset(access_token: str, adset_id: str, objective: str, time_range_params: dict):
+def fetch_ad_diagnostics_by_adset(access_token: str, adset_id: str, objective: str, time_range_params: dict, optimization_goal: str = None):
     """То же, что fetch_ad_diagnostics(), но сразу для ВСЕХ объявлений группы одним запросом
     (level=ad на ноду adset) — вместо отдельного /insights на каждое ad_id. Раньше разбор
     группы с несколькими крео (вердикт крео, аудитория, рекомендации) делал по запросу на
@@ -1511,10 +1588,10 @@ def fetch_ad_diagnostics_by_adset(access_token: str, adset_id: str, objective: s
         rows.extend(page.get("data", []))
         next_url = page.get("paging", {}).get("next")
 
-    return {row.get("ad_id"): _diagnostics_from_row(objective, row) for row in rows if row.get("ad_id")}, None
+    return {row.get("ad_id"): _diagnostics_from_row(objective, row, optimization_goal) for row in rows if row.get("ad_id")}, None
 
 
-def fetch_timeseries_by_adset(access_token: str, adset_id: str, objective: str, time_range_params: dict, time_increment: int = 1):
+def fetch_timeseries_by_adset(access_token: str, adset_id: str, objective: str, time_range_params: dict, time_increment: int = 1, optimization_goal: str = None):
     """Дневная динамика сразу по ВСЕМ объявлениям группы одним запросом (level=ad + тот же
     time_increment, что и fetch_timeseries) — вместо отдельного timeseries-запроса на каждое
     креативо (см. fetch_ad_diagnostics_by_adset — та же причина: лимит запросов Meta при
@@ -1555,7 +1632,7 @@ def fetch_timeseries_by_adset(access_token: str, adset_id: str, objective: str, 
                 "date_start": r.get("date_start"),
                 "date_stop": r.get("date_stop"),
                 "metrics": format_metrics_row(r),
-                "result": extract_result_metric(objective, r),
+                "result": extract_result_metric(objective, r, optimization_goal),
             }
             for r in ad_rows
         ]

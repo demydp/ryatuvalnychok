@@ -29,6 +29,7 @@ from datetime import date, datetime, timedelta, timezone
 from app.ads_api import (
     AdsAPIError,
     build_time_range_params,
+    campaign_optimization_goal,
     extract_result_metric,
     fetch_insights_by_level,
     fetch_structure,
@@ -146,6 +147,7 @@ def _collect_tested_changes(campaigns: list, since: date, until: date, adset_row
         objective = campaign.get("objective")
         for adset in campaign.get("_adsets", []):
             adset_id = adset.get("id")
+            adset_opt_goal = adset.get("optimization_goal")
             dt = _parse_meta_dt(adset.get("start_time"))
             if dt and since_dt <= dt < until_dt and adset_id not in seen_adset_ids:
                 row = adset_rows.get(adset_id)
@@ -157,7 +159,7 @@ def _collect_tested_changes(campaigns: list, since: date, until: date, adset_row
                         "campaign_name": campaign.get("name", ""),
                         "start_time": adset.get("start_time"),
                         "metrics": metrics,
-                        "result": extract_result_metric(objective, row),
+                        "result": extract_result_metric(objective, row, adset_opt_goal),
                     })
             for ad in adset.get("_ads", []):
                 ad_id = ad.get("id")
@@ -173,7 +175,7 @@ def _collect_tested_changes(campaigns: list, since: date, until: date, adset_row
                             "adset_name": adset.get("name", ""),
                             "created_time": ad.get("created_time"),
                             "metrics": metrics,
-                            "result": extract_result_metric(objective, row),
+                            "result": extract_result_metric(objective, row, adset_opt_goal),
                         })
     return new_adsets, new_ads
 
@@ -255,6 +257,7 @@ def _all_ads_with_metrics(campaigns: list, ad_rows: dict) -> list:
     for campaign in campaigns:
         objective = campaign.get("objective")
         for adset in campaign.get("_adsets", []):
+            adset_opt_goal = adset.get("optimization_goal")
             for ad in adset.get("_ads", []):
                 row = ad_rows.get(ad["id"])
                 if not row:
@@ -264,7 +267,7 @@ def _all_ads_with_metrics(campaigns: list, ad_rows: dict) -> list:
                     "name": ad.get("name", ""),
                     "campaign_name": campaign.get("name", ""),
                     "metrics": format_metrics_row(row),
-                    "result": extract_result_metric(objective, row),
+                    "result": extract_result_metric(objective, row, adset_opt_goal),
                 })
     return out
 
@@ -419,7 +422,7 @@ def _aggregate(campaigns: list, rows_by_id: dict):
         objective = campaign.get("objective")
         row = rows_by_id.get(cid)
         metrics = format_metrics_row(row) if row else None
-        result = extract_result_metric(objective, row) if row else None
+        result = extract_result_metric(objective, row, campaign_optimization_goal(campaign)) if row else None
 
         if metrics:
             total_spend += metrics.get("spend") or 0

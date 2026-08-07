@@ -12,8 +12,8 @@ import anthropic
 from app.ads_api import (
     AdsAPIError,
     DEFAULT_PERIOD,
-    OBJECTIVE_RESULT_EXPLANATION,
     build_time_range_params,
+    campaign_optimization_goal,
     compute_trend,
     compute_video_trend,
     detect_creative_fatigue,
@@ -39,6 +39,7 @@ from app.ads_api import (
     format_targeting,
     normalize_account_id,
     objective_label,
+    result_explanation,
     to_currency_units,
     verify_ad_account_access,
 )
@@ -166,6 +167,7 @@ def run_ads_sync(period: str = DEFAULT_PERIOD, date_from: str = None, date_to: s
     for campaign in campaigns:
         objective = campaign.get("objective")
         kpi_targets = all_kpi_targets.get(objective)
+        campaign_opt_goal = campaign_optimization_goal(campaign)
 
         # c_row идёт напрямую из insights?level=campaign (campaign_insights выше) — цельная
         # цифра по кампании от Meta, а не сумма по её adset'ам ниже. Так и должно оставаться:
@@ -176,16 +178,17 @@ def run_ads_sync(period: str = DEFAULT_PERIOD, date_from: str = None, date_to: s
         c_metrics = format_metrics_row(c_row) if c_row else _empty_metrics_block()
         if campaign_unsupported:
             c_metrics["_unsupported"] = campaign_unsupported
-        c_result = extract_result_metric(objective, c_row or {})
+        c_result = extract_result_metric(objective, c_row or {}, campaign_opt_goal)
         c_kpi_verdicts = compute_kpi_verdicts(c_metrics, c_result, kpi_targets)
 
         adsets_out = []
         for adset in campaign.get("_adsets", []):
+            adset_opt_goal = adset.get("optimization_goal")
             a_row = adset_insights.get(adset["id"])
             a_metrics = format_metrics_row(a_row) if a_row else _empty_metrics_block()
             if adset_unsupported:
                 a_metrics["_unsupported"] = adset_unsupported
-            a_result = extract_result_metric(objective, a_row or {})
+            a_result = extract_result_metric(objective, a_row or {}, adset_opt_goal)
             a_kpi_verdicts = compute_kpi_verdicts(a_metrics, a_result, kpi_targets)
 
             ads_out = []
@@ -194,7 +197,7 @@ def run_ads_sync(period: str = DEFAULT_PERIOD, date_from: str = None, date_to: s
                 ad_metrics = format_metrics_row(ad_row) if ad_row else _empty_metrics_block()
                 if ad_unsupported:
                     ad_metrics["_unsupported"] = ad_unsupported
-                ad_result = extract_result_metric(objective, ad_row or {})
+                ad_result = extract_result_metric(objective, ad_row or {}, adset_opt_goal)
 
                 ads_out.append({
                     "id": ad["id"],
@@ -234,7 +237,7 @@ def run_ads_sync(period: str = DEFAULT_PERIOD, date_from: str = None, date_to: s
             "name": campaign.get("name", ""),
             "objective": objective,
             "objective_label": objective_label(objective),
-            "result_explanation": OBJECTIVE_RESULT_EXPLANATION.get(objective, t("ads.msg.no_result_explanation")),
+            "result_explanation": result_explanation(objective, campaign_opt_goal),
             "status": campaign.get("status"),
             "effective_status": campaign.get("effective_status"),
             "buying_type": campaign.get("buying_type"),
@@ -321,6 +324,9 @@ def get_insights_detail():
 
     entity_id = request.args.get("entity_id")
     objective = request.args.get("objective")
+    # Приходит от фронтенда с уже загруженной структурой кабинета (adset.optimization_goal) —
+    # entity_id тут всегда adset.id, лишний запрос к Meta ради этого поля не нужен.
+    optimization_goal = request.args.get("optimization_goal")
     if not entity_id:
         return jsonify({"error": t("ads.msg.no_entity_id")}), 400
 
@@ -330,8 +336,8 @@ def get_insights_detail():
 
     try:
         time_range_params = build_time_range_params(period, date_from, date_to)
-        breakdowns, unsupported = fetch_all_breakdowns(token, entity_id, objective, time_range_params)
-        daily = fetch_timeseries(token, entity_id, objective, time_range_params, time_increment=1)
+        breakdowns, unsupported = fetch_all_breakdowns(token, entity_id, objective, time_range_params, optimization_goal)
+        daily = fetch_timeseries(token, entity_id, objective, time_range_params, time_increment=1, optimization_goal=optimization_goal)
         trend = compute_trend(daily)
     except AdsAPIError as e:
         return jsonify({"error": str(e)}), 400
@@ -375,20 +381,21 @@ def get_placement_breakdown():
     if error:
         return jsonify({"error": error}), 400
 
-    formatted_rows = [format_breakdown_row(row, "platform_position", objective) for row in rows]
-    verdict = compute_placement_verdict(formatted_rows, objective)
-
-    # Режим плейсментов (авто/Advantage+ vs ручной) живёт в targeting группы, а не объявления —
-    # без него Opus не может честно объяснить, что 0 расхода на плейсменте это выбор алгоритма,
-    # а не "плохой" плейсмент (см. app/ads_opus.py::build_placement_verdict_prompt).
-    placement_mode, placement_label = None, None
+    # Режим плейсментов (авто/Advantage+ vs ручной) и optimization_goal живут в группе, а не в
+    # объявлении — тянем ДО расчёта результата по плейсментам, иначе честный расчёт "результата"
+    # (см. OPTIMIZATION_GOAL_RESULT_ACTIONS в ads_api.py) откатится на менее точный objective.
+    placement_mode, placement_label, optimization_goal = None, None, None
     if adset_id:
         try:
             adset_data = fetch_adset_targeting(token, adset_id)
             placement_label = format_targeting(adset_data.get("targeting"), adset_data.get("targeting_automation")).get("placement")
             placement_mode = "auto" if placement_label and placement_label.startswith("Авто") else "manual"
+            optimization_goal = adset_data.get("optimization_goal")
         except AdsAPIError:
             placement_label = None
+
+    formatted_rows = [format_breakdown_row(row, "platform_position", objective, optimization_goal) for row in rows]
+    verdict = compute_placement_verdict(formatted_rows, objective)
 
     opus_summary, opus_note = None, None
     anthropic_key = cfg.get("anthropic_api_key")
@@ -566,18 +573,19 @@ def _analyze_adset(
     adset_info = fetch_adset_targeting(token, adset_id)
     raw_targeting = adset_info.get("targeting") or {}
     targeting_display = format_targeting(raw_targeting, adset_info.get("targeting_automation"))
+    optimization_goal = adset_info.get("optimization_goal")
 
     adset_row, _metrics_error = fetch_entity_metrics(token, adset_id, time_range_params)
     adset_metrics = format_metrics_row(adset_row or {})
-    adset_result = extract_result_metric(objective, adset_row or {})
+    adset_result = extract_result_metric(objective, adset_row or {}, optimization_goal)
 
-    breakdowns, unsupported_breakdowns = fetch_all_breakdowns(token, adset_id, objective, time_range_params)
+    breakdowns, unsupported_breakdowns = fetch_all_breakdowns(token, adset_id, objective, time_range_params, optimization_goal)
 
     ads_basic = fetch_ads_basic_list(token, adset_id)
 
     # Один запрос на всю группу (level=ad) вместо N параллельных запросов по каждому
     # объявлению — та же диагностика, но без риска упереться в лимит запросов Meta.
-    diagnostics_by_ad, diagnostics_error = fetch_ad_diagnostics_by_adset(token, adset_id, objective, time_range_params)
+    diagnostics_by_ad, diagnostics_error = fetch_ad_diagnostics_by_adset(token, adset_id, objective, time_range_params, optimization_goal)
     ads_diagnostics = []
     for ad in ads_basic:
         entry = {"id": ad["id"], "name": ad.get("name", "")}
@@ -589,7 +597,7 @@ def _analyze_adset(
         ads_diagnostics.append(entry)
 
     learning_stage = fetch_learning_stage(token, adset_id)
-    daily = fetch_timeseries(token, adset_id, objective, time_range_params, time_increment=1)
+    daily = fetch_timeseries(token, adset_id, objective, time_range_params, time_increment=1, optimization_goal=optimization_goal)
     trend = compute_trend(daily)
     frequency_trend = trend.get("frequency") if trend.get("available") else None
 
@@ -786,19 +794,20 @@ def get_recommendations():
 
         campaign = fetch_single_campaign(token, campaign_id)
         objective = campaign.get("objective")
+        campaign_opt_goal = campaign_optimization_goal(campaign)
         all_kpi_targets = load_kpi_targets()
         kpi_targets = all_kpi_targets.get(objective)
 
         campaign_row, _err = fetch_entity_metrics(token, campaign_id, time_range_params)
         campaign_metrics = format_metrics_row(campaign_row or {})
-        campaign_result = extract_result_metric(objective, campaign_row or {})
+        campaign_result = extract_result_metric(objective, campaign_row or {}, campaign_opt_goal)
         campaign_kpi_verdicts = compute_kpi_verdicts(campaign_metrics, campaign_result, kpi_targets)
 
         campaign_ctx = {
             "name": campaign.get("name", ""),
             "objective": objective,
             "objective_label": objective_label(objective),
-            "result_explanation": OBJECTIVE_RESULT_EXPLANATION.get(objective, t("common.no_data")),
+            "result_explanation": result_explanation(objective, campaign_opt_goal),
             "status": campaign.get("status"),
             "effective_status": campaign.get("effective_status"),
             "budget_type": "CBO" if (campaign.get("daily_budget") or campaign.get("lifetime_budget")) else "ABO",
@@ -821,7 +830,10 @@ def get_recommendations():
             # каждое объявление — при разборе кампании целиком (много групп × много крео)
             # именно эти повторные точечные вызовы упирались в лимит запросов Meta.
             try:
-                daily_by_ad = fetch_timeseries_by_adset(token, adset["id"], objective, time_range_params, time_increment=1)
+                daily_by_ad = fetch_timeseries_by_adset(
+                    token, adset["id"], objective, time_range_params, time_increment=1,
+                    optimization_goal=adset.get("optimization_goal"),
+                )
             except AdsAPIError:
                 daily_by_ad = {}
 

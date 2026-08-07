@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from app.ads_api import (
     AdsAPIError,
     build_time_range_params,
+    campaign_optimization_goal,
     extract_result_metric,
     fetch_insights_by_level,
     fetch_structure,
@@ -143,7 +144,7 @@ def build_past_campaigns_report(status_filter: str, period: str, date_from: str 
             continue
 
         metrics = format_metrics_row(row)
-        result = extract_result_metric(objective, row)
+        result = extract_result_metric(objective, row, campaign_optimization_goal(campaign))
         targets = kpi_targets_all.get(objective)
         verdicts = compute_kpi_verdicts(metrics, result, targets) if targets else []
         rec_code, rec_params = _recommendation_for_campaign(verdicts, True)

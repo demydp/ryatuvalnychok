@@ -15,6 +15,7 @@ from app.ads_api import (
     FATIGUE_FREQUENCY_THRESHOLD,
     AdsAPIError,
     build_time_range_params,
+    campaign_optimization_goal,
     extract_result_metric,
     fetch_entity_metrics,
     fetch_learning_stage,
@@ -164,7 +165,7 @@ def _rule_expensive_campaign(token: str, campaigns: list, kpi_targets: dict) -> 
         row, err = fetch_entity_metrics(token, campaign["id"], window)
         if err or not row:
             continue
-        result = extract_result_metric(objective, row)
+        result = extract_result_metric(objective, row, campaign_optimization_goal(campaign))
         if result["value"] is None or result["value"] < SIGNAL_MIN_EVENTS:
             continue
         cost = result["cost_per_result"]
@@ -198,7 +199,7 @@ def _rule_learning_exit(token: str, campaigns: list) -> list:
             row, err = fetch_entity_metrics(token, adset["id"], window)
             if err or not row:
                 continue
-            result = extract_result_metric(objective, row)
+            result = extract_result_metric(objective, row, adset.get("optimization_goal"))
             if result["value"] is None or result["value"] < LEARNING_EXIT_MIN_EVENTS:
                 continue
 

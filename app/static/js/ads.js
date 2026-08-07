@@ -202,8 +202,8 @@
     </div>`;
   }
 
-  function adHtml(ad, objective, currency, adsetId) {
-    entityContext.set(ad.id, { type: "ad", objective, targeting: null, adsetId, name: ad.name || "" });
+  function adHtml(ad, objective, currency, adsetId, adsetOptimizationGoal) {
+    entityContext.set(ad.id, { type: "ad", objective, targeting: null, adsetId, name: ad.name || "", optimizationGoal: adsetOptimizationGoal });
     return `
       <div class="card ads-node ads-node-ad">
         <div class="acc-header">
@@ -223,8 +223,8 @@
   }
 
   function adsetHtml(adset, campaignBudgetType, campaignObjective, currency) {
-    const adsHtml = adset.ads.map((ad) => adHtml(ad, campaignObjective, currency, adset.id)).join("");
-    entityContext.set(adset.id, { type: "adset", objective: campaignObjective, targeting: adset.targeting });
+    const adsHtml = adset.ads.map((ad) => adHtml(ad, campaignObjective, currency, adset.id, adset.optimization_goal)).join("");
+    entityContext.set(adset.id, { type: "adset", objective: campaignObjective, targeting: adset.targeting, optimizationGoal: adset.optimization_goal });
     return `
       <div class="card ads-node ads-node-adset">
         <div class="acc-header" data-toggle="1">
@@ -473,6 +473,7 @@
     try {
       const params = new URLSearchParams({ entity_id: entityId, period });
       if (ctx.objective) params.set("objective", ctx.objective);
+      if (ctx.optimizationGoal) params.set("optimization_goal", ctx.optimizationGoal);
       if (period === "custom") {
         params.set("date_from", dateFromInput.value);
         params.set("date_to", dateToInput.value);

@@ -22,6 +22,7 @@ from app.ads_api import (
     AdsAPIError,
     DEFAULT_PERIOD,
     build_time_range_params,
+    campaign_optimization_goal,
     extract_result_metric,
     format_metrics_row,
     objective_label,
@@ -170,6 +171,7 @@ def build_daily_report(project_id: str = None, period: str = "today", include_ad
     for campaign in active_campaigns:
         cid = campaign["id"]
         objective = campaign.get("objective")
+        campaign_opt_goal = campaign_optimization_goal(campaign)
         row = rows_by_id.get(cid)
 
         if row is None:
@@ -188,7 +190,7 @@ def build_daily_report(project_id: str = None, period: str = "today", include_ad
             continue
 
         metrics = format_metrics_row(row)
-        result = extract_result_metric(objective, row)
+        result = extract_result_metric(objective, row, campaign_opt_goal)
         targets = kpi_targets_all.get(objective)
         verdicts = compute_kpi_verdicts(metrics, result, targets) if targets else []
         rec_code, rec_params = _recommendation_for_campaign(objective, metrics, result, verdicts)
@@ -222,6 +224,7 @@ def build_daily_report(project_id: str = None, period: str = "today", include_ad
             for campaign in active_campaigns:
                 objective = campaign.get("objective")
                 for adset in campaign.get("_adsets", []):
+                    adset_opt_goal = adset.get("optimization_goal")
                     for ad in adset.get("_ads", []):
                         ad_row = ad_rows.get(ad["id"])
                         if ad_row is None:
@@ -233,7 +236,7 @@ def build_daily_report(project_id: str = None, period: str = "today", include_ad
                             "objective": objective,
                             "objective_label": objective_label(objective),
                             "metrics": format_metrics_row(ad_row),
-                            "result": extract_result_metric(objective, ad_row),
+                            "result": extract_result_metric(objective, ad_row, adset_opt_goal),
                         })
             if ad_unsupported:
                 ads_error = "; ".join(ad_unsupported.values())
