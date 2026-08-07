@@ -1,0 +1,11 @@
+# Railway/Nixpacks: явно тягнемо libpq у образ (і на build, і на runtime стадію).
+#
+# Причина: "ImportError: libpq.so.5: cannot open shared object file" — psycopg2-binary У
+# requirements.txt вже є (не звичайний psycopg2), але якщо Nixpacks auto-detect вибере Python-
+# версію, для якої на PyPI немає готового manylinux wheel psycopg2-binary під ту версію, pip
+# тихо збирає його з вихідників проти libpq build-стадії — а в тоншому runtime-образі цієї
+# бібліотеки вже нема, звідси помилка саме при СТАРТІ (import psycopg2), а не при білді.
+# .python-version поруч фіксує Python 3.12 (під яку wheel точно є), цей файл — запобіжник
+# понад те: libpq буде в образі, навіть якщо pip колись все ж збирав з вихідників.
+[phases.setup]
+nixPkgs = ["postgresql"]
