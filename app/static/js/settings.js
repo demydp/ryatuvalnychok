@@ -9,22 +9,6 @@
   const saveStatus = document.getElementById("save-status");
   const tokenStatusBox = document.getElementById("token-status-box");
   const refreshTokenBtn = document.getElementById("btn-refresh-token");
-  const networkInfoBox = document.getElementById("network-info-box");
-
-  async function loadNetworkInfo() {
-    try {
-      const res = await fetch("/api/settings/network-info");
-      const data = await res.json();
-      networkInfoBox.className = "status-box show ok";
-      networkInfoBox.innerHTML = `
-        <span>${I18N.t("settings.network.phone_label")}: <strong>${data.lan_url}</strong></span>
-        <span style="color:var(--muted); font-size:12px;">${I18N.t("settings.network.same_wifi_note")}</span>
-      `;
-    } catch (e) {
-      networkInfoBox.className = "status-box show error";
-      networkInfoBox.textContent = I18N.t("settings.msg.network_error", { message: e.message });
-    }
-  }
 
   async function loadSettings() {
     const res = await fetch("/api/settings");
@@ -444,66 +428,7 @@
     location.reload();
   });
 
-  // --- Обновления ---
-  const checkUpdatesBtn = document.getElementById("btn-check-updates");
-  const updateStatus = document.getElementById("update-status");
-  const currentVersionEl = document.getElementById("update-current-version");
-
-  function renderCurrentVersion() {
-    currentVersionEl.textContent = I18N.t("settings.updates.current_version", { version: currentVersionEl.dataset.version });
-  }
-
-  checkUpdatesBtn.addEventListener("click", async () => {
-    checkUpdatesBtn.disabled = true;
-    updateStatus.className = "status-box show";
-    updateStatus.textContent = I18N.t("settings.updates.checking");
-    try {
-      const res = await fetch("/api/updates/check");
-      const data = await res.json();
-      if (!res.ok || !data.update_available) {
-        // Пока нет опубликованных релизов на GitHub, проверка обновлений всегда "не удаётся" —
-        // с точки зрения пользователя это неотличимо от "обновлений нет", красную ошибку не
-        // показываем ни при каком сбое проверки (см. app/routes/updates.py).
-        updateStatus.className = "status-box show ok";
-        updateStatus.textContent = I18N.t("settings.updates.up_to_date");
-        return;
-      }
-      updateStatus.className = "status-box show warn";
-      updateStatus.innerHTML = "";
-      const label = document.createElement("div");
-      label.textContent = I18N.t("settings.updates.available", { version: data.latest_version });
-      updateStatus.appendChild(label);
-      const installBtn = document.createElement("button");
-      installBtn.className = "btn";
-      installBtn.style.marginTop = "10px";
-      installBtn.textContent = I18N.t("settings.updates.install_btn");
-      installBtn.addEventListener("click", async () => {
-        installBtn.disabled = true;
-        updateStatus.className = "status-box show warn";
-        updateStatus.textContent = I18N.t("settings.updates.installing");
-        try {
-          await fetch("/api/updates/apply", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url: data.download_url }),
-          });
-        } catch (e) {
-          // Приложение вот-вот закроется само (см. app/update_checker.py) — обрыв
-          // соединения здесь ожидаем, а не ошибка.
-        }
-      });
-      updateStatus.appendChild(installBtn);
-    } catch (e) {
-      updateStatus.className = "status-box show ok";
-      updateStatus.textContent = I18N.t("settings.updates.up_to_date");
-    } finally {
-      checkUpdatesBtn.disabled = false;
-    }
-  });
-
-  renderCurrentVersion();
   loadSettings();
   loadProjects();
   loadTokenStatus();
-  loadNetworkInfo();
 })();

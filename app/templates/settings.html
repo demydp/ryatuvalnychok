@@ -2,17 +2,6 @@
 <p class="subtitle" data-i18n="settings.subtitle">Вставьте свои ключи. Они привязаны к вашему аккаунту и хранятся в базе данных в зашифрованном виде.</p>
 
 <div class="card">
-  <h2 data-i18n="settings.network.heading">Доступ с телефона</h2>
-  <div id="network-info-box" class="status-box show" style="display:flex; flex-direction:column; gap:6px;">
-    <span data-i18n="settings.network.loading">Определяю адрес в локальной сети...</span>
-  </div>
-  <div class="hint" data-i18n="settings.network.hint">
-    Телефон и компьютер должны быть в одной Wi-Fi сети. Компьютер с дашбордом должен быть включён.
-    Если телефон не открывает адрес — проверьте, что брандмауэр Windows не блокирует Python для порта 5000.
-  </div>
-</div>
-
-<div class="card">
   <h2 data-i18n="settings.token.heading">Срок действия токена</h2>
   <div id="token-status-box" class="status-box" data-i18n="settings.token.checking">Проверяю...</div>
   <button class="btn secondary" id="btn-refresh-token" data-i18n="settings.token.refresh_btn">Обновить токен сейчас</button>
@@ -93,10 +82,3 @@
 
 <button class="btn secondary" id="btn-save-settings" data-i18n="settings.save_btn">Сохранить настройки</button>
 <span id="save-status" style="margin-left:10px; font-size:13px; color:var(--muted);"></span>
-
-<div class="card">
-  <h2 data-i18n="settings.updates.heading">Обновления</h2>
-  <p class="hint" id="update-current-version" data-version="{{ app_version }}"></p>
-  <button class="btn secondary" id="btn-check-updates" data-i18n="settings.updates.check_btn">Проверить обновления</button>
-  <div id="update-status" class="status-box"></div>
-</div>
