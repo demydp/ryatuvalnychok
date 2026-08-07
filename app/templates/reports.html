@@ -132,3 +132,42 @@
   <div id="client-reports-list"></div>
   <p id="client-reports-empty" data-i18n="reports.client.no_history">Ще немає збережених звітів.</p>
 </div>
+
+<h1 style="margin-top:40px;" data-i18n="reports.smm.title">СММ-звіт по контенту</h1>
+<p class="subtitle" data-i18n="reports.smm.subtitle">Уся статистика по інстаграму за період в одному файлі — метрики акаунту, що заходить, хук-аналіз, рубрики, динаміка і розбір, можна одразу відправити в PDF.</p>
+
+<div class="card">
+  <div class="toolbar" style="flex-wrap:wrap; gap:14px;">
+    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+      <button class="btn secondary smm-period-btn active" data-period="daily" data-i18n="reports.client.type.daily">Денний</button>
+      <button class="btn secondary smm-period-btn" data-period="weekly" data-i18n="reports.client.type.weekly">Тижневий</button>
+      <button class="btn secondary smm-period-btn" data-period="custom" data-i18n="reports.client.type.custom">Довільний період</button>
+      <span id="smm-report-custom-range" style="display:none; gap:8px; align-items:center;">
+        <input type="date" id="smm-report-date-from" style="width:auto;">
+        <span>—</span>
+        <input type="date" id="smm-report-date-to" style="width:auto;">
+      </span>
+    </div>
+  </div>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:16px;">
+    <button class="btn" id="btn-generate-smm-report" data-i18n="reports.smm.generate_btn">Згенерувати звіт</button>
+    <span id="smm-report-status" style="font-size:13px; color:var(--muted);"></span>
+  </div>
+</div>
+
+<div id="smm-report-latest" class="card" style="display:none;">
+  <div id="smm-report-summary" style="margin-bottom:20px;"></div>
+  <div id="smm-report-compare" style="margin-bottom:12px;"></div>
+  <div id="smm-report-metrics" style="margin-bottom:20px;"></div>
+  <div id="smm-report-trend" style="margin-bottom:20px;"></div>
+  <div id="smm-report-top-content" style="margin-bottom:20px;"></div>
+  <div id="smm-report-hooks" style="margin-bottom:20px;"></div>
+  <div id="smm-report-categories" style="margin-bottom:20px;"></div>
+  <div id="smm-report-business" style="margin-top:16px;"></div>
+</div>
+
+<div class="card">
+  <h2 data-i18n="reports.smm.history.heading">Збережені звіти</h2>
+  <div id="smm-reports-list"></div>
+  <p id="smm-reports-empty" data-i18n="reports.smm.no_history">Ще немає збережених СММ-звітів.</p>
+</div>

@@ -718,4 +718,331 @@
   });
 
   loadClientReports();
+
+  // --- СММ-звіт по контенту ---
+
+  const smmPeriodBtns = document.querySelectorAll(".smm-period-btn");
+  const smmCustomRange = document.getElementById("smm-report-custom-range");
+  const smmDateFromInput = document.getElementById("smm-report-date-from");
+  const smmDateToInput = document.getElementById("smm-report-date-to");
+  const smmGenerateBtn = document.getElementById("btn-generate-smm-report");
+  const smmStatusEl = document.getElementById("smm-report-status");
+  const smmLatestBox = document.getElementById("smm-report-latest");
+  const smmSummaryBox = document.getElementById("smm-report-summary");
+  const smmCompareBox = document.getElementById("smm-report-compare");
+  const smmMetricsBox = document.getElementById("smm-report-metrics");
+  const smmTrendBox = document.getElementById("smm-report-trend");
+  const smmTopContentBox = document.getElementById("smm-report-top-content");
+  const smmHooksBox = document.getElementById("smm-report-hooks");
+  const smmCategoriesBox = document.getElementById("smm-report-categories");
+  const smmBusinessBox = document.getElementById("smm-report-business");
+  const smmReportsListEl = document.getElementById("smm-reports-list");
+  const smmReportsEmpty = document.getElementById("smm-reports-empty");
+
+  let smmPeriod = "daily";
+
+  smmPeriodBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      smmPeriodBtns.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      smmPeriod = btn.dataset.period;
+      smmCustomRange.style.display = smmPeriod === "custom" ? "inline-flex" : "none";
+    });
+  });
+
+  function renderSmmSummary(report) {
+    const summary = report.summary || {};
+    const hasStructured = summary.main_fact || summary.cause || summary.consequence || summary.actions || summary.business_plain;
+    if (!hasStructured) {
+      smmSummaryBox.innerHTML = report.opus_note
+        ? `<div class="report-summary-box"><div class="summary-line" style="color:var(--muted);">${report.opus_note}</div></div>`
+        : "";
+      smmBusinessBox.innerHTML = "";
+      return;
+    }
+    const lines = [];
+    if (summary.main_fact) lines.push(`<div class="report-summary-fact">${summary.main_fact}</div>`);
+    if (summary.cause) lines.push(`<div class="summary-line"><b>${I18N.t("reports.smm.summary.cause_label")}:</b> ${summary.cause}</div>`);
+    if (summary.consequence) lines.push(`<div class="summary-line"><b>${I18N.t("reports.smm.summary.conclusion_label")}:</b> ${summary.consequence}</div>`);
+    if (summary.actions) {
+      const actionsHtml = summary.actions.replace(/\n/g, "<br>");
+      lines.push(`<div class="summary-line"><b>${I18N.t("reports.smm.summary.actions_label")}:</b> ${actionsHtml}</div>`);
+    }
+    smmSummaryBox.innerHTML = `<div class="report-summary-box">${lines.join("")}</div>`;
+    smmBusinessBox.innerHTML = summary.business_plain
+      ? `
+        <div class="subtitle" style="margin-bottom:6px;">${I18N.t("reports.client.business_heading")}</div>
+        <div class="report-business-box">${summary.business_plain}</div>
+      `
+      : "";
+  }
+
+  function smmMetricRowsHtml(totals, prevTotals) {
+    const rows = [
+      [I18N.t("reports.smm.posts_count"), totals.posts_count ?? 0, fmtDelta(totals.posts_count, prevTotals.posts_count)],
+      [I18N.t("reports.smm.reach"), fmtMoney(totals.reach_total), fmtDelta(totals.reach_total, prevTotals.reach_total)],
+      [I18N.t("reports.smm.engagement"), fmtMoney(totals.engagement_total), fmtDelta(totals.engagement_total, prevTotals.engagement_total)],
+      [I18N.t("reports.smm.er"), totals.engagement_rate_avg ?? I18N.t("common.no_data"), fmtDelta(totals.engagement_rate_avg, prevTotals.engagement_rate_avg), "%"],
+      [I18N.t("reports.smm.saves"), fmtMoney(totals.saves_total), fmtDelta(totals.saves_total, prevTotals.saves_total)],
+    ];
+    return `
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <tbody>
+          ${rows.map(([label, value, delta, suffix]) => `
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:6px 8px; color:var(--muted);">${label}</td>
+              <td style="padding:6px 8px; font-weight:600;">${value}${suffix || ""}</td>
+              <td style="padding:6px 8px; color:var(--muted);">${delta}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function smmTrendTableHtml(trend) {
+    if (!trend || !trend.length) return "";
+    return `
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead><tr style="text-align:left; color:var(--muted);">
+          <th style="padding:4px 8px;">${I18N.t("reports.client.funnel_col_stage")}</th>
+          <th style="padding:4px 8px;">${I18N.t("reports.client.funnel_col_current")}</th>
+          <th style="padding:4px 8px;">${I18N.t("reports.client.funnel_col_prev")}</th>
+          <th style="padding:4px 8px;">${I18N.t("reports.client.funnel_col_change")}</th>
+        </tr></thead>
+        <tbody>
+          ${trend.map((row) => `
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:4px 8px;">${row.label}</td>
+              <td style="padding:4px 8px;">${row.value ?? I18N.t("common.no_data")}</td>
+              <td style="padding:4px 8px;">${row.prev_value ?? I18N.t("common.no_data")}</td>
+              <td style="padding:4px 8px;">${fmtDelta(row.value, row.prev_value)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function smmTopContentHtml(topContent) {
+    if (!topContent) return "";
+    if (topContent.insufficient_data) {
+      return `<div class="subtitle" style="margin-bottom:6px;">${I18N.t("reports.smm.top_content_heading")}</div><div style="color:var(--muted); font-size:13px;">${I18N.t("reports.smm.msg.insufficient_content_data")}</div>`;
+    }
+    const topEr = topContent.top_er || [];
+    const warning = topContent.low_sample_warning
+      ? `<div style="color:var(--muted); font-size:12px; margin-bottom:6px;">${I18N.t("reports.smm.msg.low_sample", { n: topContent.dataset_size })}</div>`
+      : "";
+    const rowsHtml = topEr.length
+      ? `
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+          <thead><tr style="text-align:left; color:var(--muted);">
+            <th style="padding:4px 8px;">${I18N.t("reports.smm.col_post")}</th>
+            <th style="padding:4px 8px;">${I18N.t("reports.smm.col_reach")}</th>
+            <th style="padding:4px 8px;">${I18N.t("reports.smm.col_er")}</th>
+          </tr></thead>
+          <tbody>
+            ${topEr.map((p) => `
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:6px 8px;">«${(p.caption || "").replace(/\n/g, " ")}»</td>
+                <td style="padding:6px 8px;">${fmtMoney(p.reach)}</td>
+                <td style="padding:6px 8px;">${p.engagement_rate ?? I18N.t("common.no_data")}%</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `
+      : `<div style="color:var(--muted); font-size:13px;">${I18N.t("common.no_data")}</div>`;
+    const bestLines = [];
+    if (topContent.best_hour) bestLines.push(`<div style="font-size:13px; margin-top:6px;">${I18N.t("reports.smm.best_hour")}: ${topContent.best_hour.label} (ER ${topContent.best_hour.avg_er}%, n=${topContent.best_hour.count})</div>`);
+    if (topContent.best_weekday) bestLines.push(`<div style="font-size:13px; margin-top:4px;">${I18N.t("reports.smm.best_weekday")}: ${topContent.best_weekday.label} (ER ${topContent.best_weekday.avg_er}%, n=${topContent.best_weekday.count})</div>`);
+    return `
+      <div class="subtitle" style="margin-bottom:6px;">${I18N.t("reports.smm.top_content_heading")}</div>
+      ${warning}
+      ${rowsHtml}
+      ${bestLines.join("")}
+    `;
+  }
+
+  function smmHooksHtml(hooks) {
+    const summary = (hooks && hooks.hook_type_summary) || [];
+    if (!summary.length) {
+      return `<div class="subtitle" style="margin-bottom:6px;">${I18N.t("reports.smm.hooks_heading")}</div><div style="color:var(--muted); font-size:13px;">${I18N.t("reports.smm.msg.no_hooks_data")}</div>`;
+    }
+    return `
+      <div class="subtitle" style="margin-bottom:6px;">${I18N.t("reports.smm.hooks_heading")}</div>
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead><tr style="text-align:left; color:var(--muted);">
+          <th style="padding:4px 8px;">${I18N.t("reports.smm.col_hook_type")}</th>
+          <th style="padding:4px 8px;">${I18N.t("reports.smm.col_hook_indicator")}</th>
+          <th style="padding:4px 8px;">${I18N.t("reports.smm.col_sample")}</th>
+        </tr></thead>
+        <tbody>
+          ${summary.map((row) => `
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:6px 8px;">${row.type}</td>
+              <td style="padding:6px 8px;">${row.avg_indicator}%</td>
+              <td style="padding:6px 8px;">${row.count}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function smmCategoriesHtml(categories) {
+    const withData = (categories || []).filter((c) => c.organic_count);
+    if (!withData.length) {
+      return `<div class="subtitle" style="margin-bottom:6px;">${I18N.t("reports.smm.categories_heading")}</div><div style="color:var(--muted); font-size:13px;">${I18N.t("reports.smm.msg.no_categories_data")}</div>`;
+    }
+    return `
+      <div class="subtitle" style="margin-bottom:6px;">${I18N.t("reports.smm.categories_heading")}</div>
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead><tr style="text-align:left; color:var(--muted);">
+          <th style="padding:4px 8px;">${I18N.t("reports.smm.col_category")}</th>
+          <th style="padding:4px 8px;">${I18N.t("reports.smm.col_er")}</th>
+          <th style="padding:4px 8px;">${I18N.t("reports.smm.col_saves_rate")}</th>
+          <th style="padding:4px 8px;">${I18N.t("reports.smm.col_hook_indicator")}</th>
+          <th style="padding:4px 8px;">${I18N.t("reports.smm.col_sample")}</th>
+        </tr></thead>
+        <tbody>
+          ${withData.map((c) => `
+            <tr style="border-top:1px solid var(--border);">
+              <td style="padding:6px 8px;">${c.name}</td>
+              <td style="padding:6px 8px;">${c.avg_er ?? I18N.t("common.no_data")}%</td>
+              <td style="padding:6px 8px;">${c.avg_saves_rate ?? I18N.t("common.no_data")}%</td>
+              <td style="padding:6px 8px;">${c.avg_hook_indicator ?? I18N.t("common.no_data")}%</td>
+              <td style="padding:6px 8px;">${c.organic_count}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function renderSmmReport(report) {
+    if (!report) {
+      smmLatestBox.style.display = "none";
+      return;
+    }
+    smmLatestBox.style.display = "block";
+    const totals = report.account_metrics || {};
+    const prevTotals = report.prev_account_metrics || {};
+
+    renderSmmSummary(report);
+
+    smmMetricsBox.innerHTML = `
+      <div class="subtitle" style="margin-bottom:6px;">${I18N.t("reports.smm.metrics_heading")}</div>
+      ${smmMetricRowsHtml(totals, prevTotals)}
+      ${totals.best_post ? `<div style="font-size:13px; margin-top:8px;"><b>${I18N.t("reports.smm.best_post")}:</b> «${(totals.best_post.caption || "").replace(/\n/g, " ")}» — ER ${totals.best_post.engagement_rate}%, ${I18N.t("reports.client.reach_label")}: ${fmtMoney(totals.best_post.reach)}</div>` : ""}
+      <div style="font-size:12px; color:var(--muted); margin-top:6px;">${I18N.t("reports.smm.no_profile_visits_note")}</div>
+    `;
+
+    smmCompareBox.innerHTML = report.prev_date_from
+      ? `<div class="subtitle">${I18N.t("reports.client.vs_prev")}: ${report.prev_date_from} — ${report.prev_date_to}</div>`
+      : "";
+
+    smmTrendBox.innerHTML = (report.trend && report.trend.length)
+      ? `<div class="subtitle" style="margin-bottom:6px;">${I18N.t("reports.smm.trend_heading")}</div>${smmTrendTableHtml(report.trend)}`
+      : "";
+
+    smmTopContentBox.innerHTML = smmTopContentHtml(report.top_content);
+    smmHooksBox.innerHTML = smmHooksHtml(report.hooks);
+    smmCategoriesBox.innerHTML = smmCategoriesHtml(report.categories);
+  }
+
+  function smmReportCardHtml(r) {
+    const generatedLabel = r.generated_at ? new Date(r.generated_at).toLocaleString(I18N.locale()) : "";
+    return `
+      <div class="top-card" data-id="${r.id}" style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <strong>${clientPeriodLabel(r.period)} (${r.date_from} — ${r.date_to})</strong>
+          <span class="subtitle">${generatedLabel}</span>
+        </div>
+        <div class="category-actions" style="margin-top:8px;">
+          <button class="icon-btn smm-report-pdf-btn">${I18N.t("reports.smm.download_pdf_btn")}</button>
+          <button class="icon-btn smm-report-delete-btn">${I18N.t("categories.delete_btn")}</button>
+        </div>
+      </div>
+    `;
+  }
+
+  async function downloadSmmReportPdf(reportId) {
+    const res = await fetch(`/api/reports/smm/${reportId}/pdf`);
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `smm_report_${reportId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function renderSmmReportsList(reports) {
+    if (!reports || !reports.length) {
+      smmReportsListEl.innerHTML = "";
+      smmReportsEmpty.style.display = "block";
+      return;
+    }
+    smmReportsEmpty.style.display = "none";
+    smmReportsListEl.innerHTML = reports.map(smmReportCardHtml).join("");
+    smmReportsListEl.querySelectorAll(".smm-report-pdf-btn").forEach((btn) => {
+      btn.addEventListener("click", () => downloadSmmReportPdf(btn.closest(".top-card").dataset.id));
+    });
+    smmReportsListEl.querySelectorAll(".smm-report-delete-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm(I18N.t("reports.smm.confirm_delete"))) return;
+        const id = btn.closest(".top-card").dataset.id;
+        const res = await fetch(`/api/reports/smm/${id}`, { method: "DELETE" });
+        if (res.ok) await loadSmmReports();
+      });
+    });
+  }
+
+  async function loadSmmReports() {
+    const res = await fetch("/api/reports/smm");
+    const data = await res.json();
+    renderSmmReportsList(data.reports || []);
+  }
+
+  smmGenerateBtn.addEventListener("click", async () => {
+    if (smmPeriod === "custom" && (!smmDateFromInput.value || !smmDateToInput.value)) {
+      smmStatusEl.textContent = I18N.t("ads.msg.specify_both_dates");
+      return;
+    }
+    smmGenerateBtn.disabled = true;
+    smmGenerateBtn.textContent = I18N.t("reports.collecting");
+    smmStatusEl.textContent = "";
+    try {
+      const body = { report_type: smmPeriod };
+      if (smmPeriod === "custom") {
+        body.date_from = smmDateFromInput.value;
+        body.date_to = smmDateToInput.value;
+      }
+      const res = await fetch("/api/reports/smm/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        smmStatusEl.textContent = data.error || I18N.t("reports.no_keys");
+        return;
+      }
+      renderSmmReport(data);
+      await loadSmmReports();
+      smmStatusEl.textContent = I18N.t("common.saved_ok");
+      setTimeout(() => (smmStatusEl.textContent = ""), 2500);
+    } catch (e) {
+      smmStatusEl.textContent = I18N.t("common.network_error", { message: e.message });
+    } finally {
+      smmGenerateBtn.disabled = false;
+      smmGenerateBtn.textContent = I18N.t("reports.smm.generate_btn");
+    }
+  });
+
+  loadSmmReports();
 })();

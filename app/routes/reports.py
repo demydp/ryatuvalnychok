@@ -17,6 +17,15 @@ from app.past_campaigns_report import (
     load_past_campaigns_history,
 )
 from app.past_campaigns_report import render_recommendation as render_past_recommendation
+from app.smm_report import (
+    build_smm_report,
+    delete_smm_report,
+    load_cached_smm_pdf,
+    load_smm_report,
+    load_smm_reports,
+    save_cached_smm_pdf,
+)
+from app.smm_report_pdf import build_smm_report_pdf_bytes
 
 reports_bp = Blueprint("reports", __name__)
 
@@ -154,5 +163,58 @@ def client_report_pdf(report_id):
 @reports_bp.route("/client/<report_id>", methods=["DELETE"])
 def client_report_delete(report_id):
     if not delete_client_report(report_id):
+        return jsonify({"error": t("reports.client.msg.not_found")}), 404
+    return jsonify({"deleted": True})
+
+
+# --- СММ-звіт по контенту ---
+
+@reports_bp.route("/smm", methods=["GET"])
+def smm_reports_list():
+    return jsonify({"reports": load_smm_reports()})
+
+
+@reports_bp.route("/smm/generate", methods=["POST"])
+def smm_report_generate():
+    body = request.get_json(force=True) or {}
+    report_type = body.get("report_type", "daily")
+    date_from = body.get("date_from")
+    date_to = body.get("date_to")
+
+    report = build_smm_report(report_type, date_from, date_to)
+    if "error" in report:
+        return jsonify(report), 400
+    return jsonify(report)
+
+
+@reports_bp.route("/smm/<report_id>", methods=["GET"])
+def smm_report_get(report_id):
+    report = load_smm_report(report_id)
+    if not report:
+        return jsonify({"error": t("reports.client.msg.not_found")}), 404
+    return jsonify(report)
+
+
+@reports_bp.route("/smm/<report_id>/pdf", methods=["GET"])
+def smm_report_pdf(report_id):
+    report = load_smm_report(report_id)
+    if not report:
+        return jsonify({"error": t("reports.client.msg.not_found")}), 404
+
+    pdf_bytes = load_cached_smm_pdf(report_id)
+    if pdf_bytes is None:
+        pdf_bytes = build_smm_report_pdf_bytes(report)
+        save_cached_smm_pdf(report_id, pdf_bytes)
+
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=smm_report_{report_id}.pdf"},
+    )
+
+
+@reports_bp.route("/smm/<report_id>", methods=["DELETE"])
+def smm_report_delete(report_id):
+    if not delete_smm_report(report_id):
         return jsonify({"error": t("reports.client.msg.not_found")}), 404
     return jsonify({"deleted": True})
