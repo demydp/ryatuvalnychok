@@ -15,6 +15,7 @@ config_store.py/project_store.py (тонких фасадів зі старим�
 Ніде в цьому файлі значення секретів не потрапляють у logger.
 """
 import logging
+import uuid
 from datetime import datetime, timezone
 
 from app.db import db
@@ -223,6 +224,21 @@ def get_user_by_email(email: str):
 def create_user(email: str, password: str) -> User:
     user = User(email=(email or "").strip().lower())
     user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+    ensure_user_initialized(user.id)
+    return user
+
+
+def create_anonymous_user() -> User:
+    """Анонімна сесія (Этап 3): без реєстрації/пароля юзер отримує "порожній" User-рядок
+    з синтетичним email/паролем, які ніде не показуються і не використовуються для входу —
+    User.email/password_hash лишились NOT NULL у схемі, тому це найдешевший спосіб завести
+    рядок без міграції. Прив'язка юзера до браузера — довгоживучий remember-cookie
+    Flask-Login (див. login_user(..., remember=True) в app/__init__.py), а не ці поля."""
+    token = uuid.uuid4().hex
+    user = User(email=f"anon-{token}@ryatuvalnychok.local")
+    user.set_password(uuid.uuid4().hex)
     db.session.add(user)
     db.session.commit()
     ensure_user_initialized(user.id)

@@ -1,13 +1,18 @@
 import logging
 import os
+from datetime import timedelta
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, redirect, render_template, request, url_for
-from flask_login import LoginManager, current_user
+from flask import Flask, jsonify, render_template, request
+from flask_login import LoginManager, current_user, login_user
 
 from app.i18n import load_translations, t
 from app.logging_setup import setup_logging
 from app.version import __version__
+
+# Довгоживучий cookie анонімної сесії (Этап 3: без реєстрації/логіну) — рік, як і просив
+# власник; саме він, а не Flask-сесія за замовчуванням, переживає закриття браузера.
+ANON_SESSION_DURATION = timedelta(days=365)
 
 
 def create_app():
@@ -18,13 +23,14 @@ def create_app():
 
     app = Flask(__name__)
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or _dev_secret_key_fallback(logger)
+    app.config["REMEMBER_COOKIE_DURATION"] = ANON_SESSION_DURATION
+    app.config["REMEMBER_COOKIE_HTTPONLY"] = True
 
     from app.db import db, init_db
 
     init_db(app)
 
     login_manager = LoginManager()
-    login_manager.login_view = "auth.login"
     login_manager.init_app(app)
 
     @login_manager.user_loader
@@ -33,7 +39,6 @@ def create_app():
 
         return db.session.get(User, int(user_id))
 
-    from app.routes.auth import auth_bp
     from app.routes.home import home_bp
     from app.routes.settings import settings_bp
     from app.routes.metrics import metrics_bp
@@ -51,7 +56,6 @@ def create_app():
     from app.routes.signals import signals_bp
     from app.routes.projects import projects_bp
 
-    app.register_blueprint(auth_bp)
     app.register_blueprint(onboarding_bp, url_prefix="/api/onboarding")
     app.register_blueprint(updates_bp, url_prefix="/api/updates")
     app.register_blueprint(home_bp, url_prefix="/api/home")
@@ -69,29 +73,28 @@ def create_app():
     app.register_blueprint(signals_bp, url_prefix="/api/signals")
     app.register_blueprint(projects_bp, url_prefix="/api/projects")
 
-    # Ізоляція даних між юзерами (Этап 1): ВСЕ, крім /login /register /logout і статики,
-    # вимагає активної сесії — один before_request замість @login_required на кожному з
-    # ~15 блюпринтів. /api/* без сесії чесно 401 JSON (фронт вже вміє показувати помилку
-    # з fetch), інші шляхи — редірект на /login?next=....
+    # Анонімна сесія (Этап 3, за рішенням власника): реєстрація/логін прибрані повністю —
+    # перший запит будь-якого нового відвідувача (крім статики) мовчки заводить йому User-рядок
+    # (app/db_store.py::create_anonymous_user) і залогінює з довгоживучим remember-cookie
+    # (ANON_SESSION_DURATION, рік). Ізоляція даних між сесіями лишається такою самою, як була
+    # в Этапі 1 (усе в db_store.py прив'язане до user_id) — просто user_id тепер видає не форма
+    # входу, а сам браузер через cookie. Ніяких 401/редіректів на /login більше немає:
+    # current_user.is_authenticated після цього блоку завжди True.
     @app.before_request
-    def require_login():
-        if request.endpoint is None:
-            return None
-        if request.endpoint == "static" or request.endpoint.startswith("auth."):
+    def ensure_anonymous_session():
+        if request.endpoint is None or request.endpoint == "static":
             return None
         if not current_user.is_authenticated:
-            if request.path.startswith("/api/"):
-                return jsonify({"error": t("auth.msg.login_required")}), 401
-            return redirect(url_for("auth.login", next=request.path))
+            from app.db_store import create_anonymous_user
+
+            user = create_anonymous_user()
+            login_user(user, remember=True, duration=ANON_SESSION_DURATION)
         return None
 
     @app.route("/")
     def index():
         from app.project_store import get_active_project, load_projects
 
-        cfg = _current_user_config()
-        if not cfg.get("setup_completed"):
-            return render_template("onboarding.html", i18n=load_translations())
         return render_template(
             "index.html",
             i18n=load_translations(),
@@ -114,12 +117,6 @@ def create_app():
     start_scheduler(app)
 
     return app
-
-
-def _current_user_config() -> dict:
-    from app.config_store import load_config
-
-    return load_config()
 
 
 def _dev_secret_key_fallback(logger) -> str:

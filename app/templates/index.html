@@ -17,11 +17,13 @@
         <button type="button" class="lang-btn" data-lang="ru">РУС</button>
         <button type="button" class="lang-btn" data-lang="uk">УКР</button>
       </div>
-      <form method="POST" action="{{ url_for('auth.logout') }}">
-        <button class="btn secondary" type="submit" data-i18n="auth.logout_btn">Выйти</button>
-      </form>
     </div>
   </header>
+
+  <div id="setup-hint-banner" class="setup-hint-banner">
+    <span data-i18n="setup_hint.text">Вставте свої ключі в Налаштування, щоб почати.</span>
+    <button type="button" class="btn secondary" id="setup-hint-cta" data-i18n="setup_hint.cta">Перейти до Налаштувань</button>
+  </div>
 
   <nav class="tabs-wrap">
     <div class="tab-group">
@@ -140,6 +142,7 @@
   </script>
   <script src="{{ url_for('static', filename='js/i18n.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='js/app.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/setup-hint.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='js/sections.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='js/projects.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='js/metric-info.js') }}?v={{ app_version }}"></script>

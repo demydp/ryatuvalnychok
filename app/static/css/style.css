@@ -236,6 +236,25 @@ nav.tabs-wrap {
   border-radius: var(--radius);
 }
 
+.setup-hint-banner {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 40px 0;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  background: var(--warning-soft);
+  color: var(--warning);
+  border: 1px solid rgba(224, 177, 104, 0.3);
+  font-size: 14px;
+}
+
+.setup-hint-banner.show {
+  display: flex;
+}
+
 .tab-group {
   display: flex;
   flex-direction: column;
