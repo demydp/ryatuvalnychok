@@ -1,34 +1,25 @@
 """
 Історія чату "Напарника" (Фаза 2, доробка). Раніше історія жила ЛИШЕ в пам'яті браузера
 (JS-масив у app/static/js/companion.js) — перезавантаження сторінки миттєво губило весь діалог,
-бо ніде на диску вона не зберігалась. Тепер пишеться по одному файлу на проєкт
-(data/projects/<id>/companion_history.json) — той самий патерн запису "все й одразу", що
-app/ideas_bank.py/app/saved_scripts.py, але тут не список карток, а один зростаючий список
-повідомлень {role, content, ts}.
+бо ніде вона не зберігалась. Тепер пишеться в БД (ProjectData, ключ "companion_history.json")
+одним зростаючим списком повідомлень {role, content, ts}, той самий патерн запису "все й одразу",
+що app/ideas_bank.py/app/saved_scripts.py.
 
-project_data_dir() без явного project_id (див. app/project_store.py) сама резолвиться в
-АКТИВНИЙ проєкт — тому історія автоматично прив'язана до проєкту без додаткової логіки тут:
-перемкнув проєкт — і /api/companion/history вже дивиться у інший файл.
+get_json()/set_json() без явного project_id (див. app/project_data_store.py) самі резолвляться
+в АКТИВНИЙ проєкт поточної сесії — тому історія автоматично прив'язана до проєкту без додаткової
+логіки тут: перемкнув проєкт — і /api/companion/history вже дивиться на інший рядок.
 """
-import json
-import os
-import tempfile
-import threading
 from datetime import datetime, timezone
 
-from app.project_store import project_data_dir
+from app.project_data_store import get_json, set_json
 
-_lock = threading.Lock()
+_KEY = "companion_history.json"
 
-# Скільки повідомлень тримати на диску — не безмежно, щоб файл не розростався роками
-# щоденного спілкування. Для контексту, який реально йде в Opus, і так береться значно
-# менший хвіст (MAX_HISTORY_MESSAGES в app/routes/companion.py) — це ліміт лише проти
-# розбухання файлу, а не проти вартості виклику.
+# Скільки повідомлень тримати — не безмежно, щоб рядок не розростався роками щоденного
+# спілкування. Для контексту, який реально йде в Opus, і так береться значно менший хвіст
+# (MAX_HISTORY_MESSAGES в app/routes/companion.py) — це ліміт лише проти розбухання, а не
+# проти вартості виклику.
 MAX_STORED_MESSAGES = 200
-
-
-def _history_path() -> str:
-    return os.path.join(project_data_dir(), "companion_history.json")
 
 
 def _now_iso() -> str:
@@ -36,32 +27,12 @@ def _now_iso() -> str:
 
 
 def load_companion_history() -> list:
-    path = _history_path()
-    if not os.path.exists(path):
-        return []
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return []
+    data = get_json(_KEY, default={})
     return data.get("messages", [])
 
 
 def _save(messages: list):
-    path = _history_path()
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with _lock:
-        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".companion_history_", suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump({"messages": messages}, f, ensure_ascii=False, indent=2)
-            os.replace(tmp_path, path)
-        except BaseException:
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
-            raise
+    set_json(_KEY, {"messages": messages})
 
 
 def append_exchange(user_message: str, assistant_reply: str) -> list:

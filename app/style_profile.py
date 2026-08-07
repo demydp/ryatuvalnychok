@@ -5,19 +5,15 @@
 Модель для профилирования — Sonnet (не Opus): это аналитическая задача, а не финальная
 генерация скрипта под публикацию, экономим баланс на дорогой модели по просьбе пользователя.
 """
-import json
-import os
 from datetime import datetime, timezone
 
 import anthropic
 
-from app.project_store import project_data_dir
+from app.project_data_store import get_json, set_json
 
 PROFILE_MODEL_ID = "claude-sonnet-4-6"
 
-
-def _style_profile_path() -> str:
-    return os.path.join(project_data_dir(), "style_profile.json")
+_KEY = "style_profile.json"
 
 MAX_TRANSCRIPTS_FOR_PROFILE = 20
 MAX_CHARS_PER_TRANSCRIPT = 1500
@@ -38,16 +34,11 @@ SYSTEM_PROMPT = (
 
 
 def load_style_profile():
-    if not os.path.exists(_style_profile_path()):
-        return None
-    with open(_style_profile_path(), "r", encoding="utf-8") as f:
-        return json.load(f)
+    return get_json(_KEY, default=None)
 
 
 def save_style_profile(profile: dict):
-    os.makedirs(os.path.dirname(_style_profile_path()), exist_ok=True)
-    with open(_style_profile_path(), "w", encoding="utf-8") as f:
-        json.dump(profile, f, ensure_ascii=False, indent=2)
+    set_json(_KEY, profile)
 
 
 def compute_style_profile(transcripts: dict, posts: list, api_key: str) -> dict:

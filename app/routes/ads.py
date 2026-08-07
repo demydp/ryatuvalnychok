@@ -1,7 +1,4 @@
-import json
 import logging
-import os
-import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
@@ -64,47 +61,26 @@ from app.ads_opus import (
     format_organic_audience,
 )
 from app.i18n import current_lang, t
-from app.project_store import get_effective_config, get_project, project_data_dir, update_active_project, update_project
+from app.project_data_store import get_json, set_json
+from app.project_store import get_effective_config, get_project, update_active_project, update_project
 from app.transcription import load_transcripts
 
 ads_bp = Blueprint("ads", __name__)
 logger = logging.getLogger("reels_dashboard")
 
+_ADS_CACHE_KEY = "ads_cache.json"
 
-def ads_cache_path() -> str:
+
+def load_ads_cache(project_id: str = None) -> dict:
     """Снимок последней структуры кабинета (см. run_ads_sync) — пишется только фоновым
     авто-обновлением (app/scheduler.py) за период DEFAULT_PERIOD, чтобы при открытии вкладки
     «Реклама» сразу было что показать («обновлено N мин назад») без ручного нажатия «Загрузить»
     и без риска, что ручной просмотр другого периода перезатрёт этот снимок."""
-    return os.path.join(project_data_dir(), "ads_cache.json")
+    return get_json(_ADS_CACHE_KEY, default={"campaigns": [], "synced_at": None}, project_id=project_id)
 
 
-def load_ads_cache() -> dict:
-    cache_path = ads_cache_path()
-    if not os.path.exists(cache_path):
-        return {"campaigns": [], "synced_at": None}
-    try:
-        with open(cache_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError) as e:
-        logger.error("ads_cache.json повреждён (%s) — начинаю с пустого кэша", e)
-        return {"campaigns": [], "synced_at": None}
-
-
-def save_ads_cache(data: dict):
-    cache_path = ads_cache_path()
-    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(cache_path), prefix=".ads_cache_", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        os.replace(tmp_path, cache_path)
-    except BaseException:
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
-        raise
+def save_ads_cache(data: dict, project_id: str = None):
+    set_json(_ADS_CACHE_KEY, data, project_id=project_id)
 
 
 def _budget_info(node: dict, currency: str) -> dict:
@@ -124,12 +100,15 @@ def _empty_metrics_block():
     return empty
 
 
-def run_ads_sync(period: str = DEFAULT_PERIOD, date_from: str = None, date_to: str = None) -> dict:
-    """Тело загрузки структуры рекламного кабинета активного проекта — общая логика для
-    ручной кнопки «Загрузить» (см. get_structure ниже) и фонового авто-обновления
-    (см. app/scheduler.py). Возвращает {"error": ...} вместо исключения, как run_metrics_sync
-    в app/routes/metrics.py — по той же причине (вызывающий код сам решает, как показать ошибку)."""
-    cfg = get_effective_config()
+def run_ads_sync(period: str = DEFAULT_PERIOD, date_from: str = None, date_to: str = None, project_id: str = None) -> dict:
+    """Тело загрузки структуры рекламного кабинета проекта — общая логика для ручной кнопки
+    «Загрузить» (см. get_structure ниже) и фонового авто-обновления (см. app/scheduler.py).
+    Возвращает {"error": ...} вместо исключения, как run_metrics_sync в app/routes/metrics.py —
+    по той же причине (вызывающий код сам решает, как показать ошибку).
+
+    project_id — явний (планувальник, Этап 2: фоновий синк конкретного проєкту, необов'язково
+    активного); None = активний проєкт поточної сесії, як і раніше (ручна кнопка)."""
+    cfg = get_effective_config(project_id)
     token = cfg.get("ig_access_token")
     account_id = cfg.get("ads_account_id")
 
@@ -159,7 +138,7 @@ def run_ads_sync(period: str = DEFAULT_PERIOD, date_from: str = None, date_to: s
             ad_insights, ad_unsupported = f_ad_insights.result()
 
         currency = account.get("currency", "")
-        all_kpi_targets = load_kpi_targets()
+        all_kpi_targets = load_kpi_targets(project_id)
     except AdsAPIError as e:
         return {"error": str(e)}
 

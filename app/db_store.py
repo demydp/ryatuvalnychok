@@ -199,12 +199,14 @@ def delete_project(user_id: int, project_id: str) -> bool:
     return True
 
 
-def get_effective_config(user_id: int) -> dict:
+def get_effective_config(user_id: int, project_id: str = None) -> dict:
     """Сумісна заміна старого project_store.py::get_effective_config(): глобальні (per-user)
-    налаштування + поля активного проєкту зверху, з тим самим правилом для anthropic-ключа
-    (оверайд проєкту, якщо заданий, інакше спільний ключ юзера)."""
+    налаштування + поля проєкту зверху, з тим самим правилом для anthropic-ключа (оверайд
+    проєкту, якщо заданий, інакше спільний ключ юзера). project_id — явний (планувальник, Этап 2:
+    фоновий синк конкретного проєкту, не обов'язково активного); None = активний (як і раніше,
+    усі ~30 наявних викликів з HTTP-запитів)."""
     cfg = load_user_config(user_id)
-    project = get_active_project(user_id)
+    project = get_project(user_id, project_id) if project_id else get_active_project(user_id)
     if not project:
         cfg.update({f: ("" if f != "anthropic_key_verified" else False) for f in PROJECT_FIELDS})
         return cfg

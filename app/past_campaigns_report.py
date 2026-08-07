@@ -15,11 +15,7 @@ Meta не возвращает отдельного статуса "COMPLETED" �
 LLM на каждую без явного запроса пользователя было бы неоправданным расходом. Глубокий
 разбор конкретной кампании с Opus — по-прежнему через «Реклама» → «Рекомендации».
 """
-import json
 import logging
-import os
-import tempfile
-import threading
 from datetime import datetime, timezone
 
 from app.ads_api import (
@@ -34,15 +30,12 @@ from app.ads_api import (
 )
 from app.ads_kpi import compute_kpi_verdicts, load_kpi_targets
 from app.i18n import t
-from app.project_store import get_effective_config, project_data_dir
+from app.project_data_store import get_json, set_json
+from app.project_store import get_effective_config
 
 logger = logging.getLogger("reels_dashboard")
 
-_lock = threading.Lock()
-
-
-def _history_path() -> str:
-    return os.path.join(project_data_dir(), "past_campaigns_history.json")
+_KEY = "past_campaigns_history.json"
 
 # История отчётов по прошлым кампаниям не привязана к календарной дате (в отличие от
 # дневного отчёта) — пользователь может запускать её многократно за один день с разными
@@ -179,32 +172,13 @@ def build_past_campaigns_report(status_filter: str, period: str, date_from: str 
 
 
 def load_past_campaigns_history() -> list:
-    if not os.path.exists(_history_path()):
-        return []
-    try:
-        with open(_history_path(), "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, OSError) as e:
-        logger.error("past_campaigns_history.json повреждён (%s) — история недоступна", e)
-        return []
+    data = get_json(_KEY, default={})
     reports = data.get("reports", [])
     return sorted(reports, key=lambda r: r.get("generated_at", ""), reverse=True)
 
 
 def _save_past_campaigns_history(reports: list):
-    os.makedirs(os.path.dirname(_history_path()), exist_ok=True)
-    with _lock:
-        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(_history_path()), prefix=".past_campaigns_", suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump({"reports": reports}, f, ensure_ascii=False, indent=2)
-            os.replace(tmp_path, _history_path())
-        except BaseException:
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
-            raise
+    set_json(_KEY, {"reports": reports})
 
 
 def collect_past_campaigns_snapshot(status_filter: str, period: str, date_from: str = None, date_to: str = None) -> dict:

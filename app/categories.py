@@ -4,20 +4,16 @@
 добавить/переименовать/объединить/удалить, перекинуть рилс в другую рубрику.
 """
 import json
-import os
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 from statistics import mean
 
 from app.i18n import t
-from app.project_store import project_data_dir
+from app.project_data_store import get_json, set_json
 
+_KEY = "categories.json"
 _EMPTY = {"categories": [], "assignments": {}, "last_auto_detect_at": None, "last_auto_detect_model": None}
-
-
-def _categories_path() -> str:
-    return os.path.join(project_data_dir(), "categories.json")
 
 
 def now_iso() -> str:
@@ -25,19 +21,16 @@ def now_iso() -> str:
 
 
 def load_categories() -> dict:
-    if not os.path.exists(_categories_path()):
+    data = get_json(_KEY, default=None)
+    if data is None:
         return json.loads(json.dumps(_EMPTY))
-    with open(_categories_path(), "r", encoding="utf-8") as f:
-        data = json.load(f)
     merged = json.loads(json.dumps(_EMPTY))
     merged.update(data)
     return merged
 
 
 def save_categories(data: dict):
-    os.makedirs(os.path.dirname(_categories_path()), exist_ok=True)
-    with open(_categories_path(), "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    set_json(_KEY, data)
 
 
 def add_category(name: str, source: str = "manual") -> dict:

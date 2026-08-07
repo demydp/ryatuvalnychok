@@ -11,11 +11,7 @@ KPI, что и в ads_kpi.py), а не через Claude Opus (см. ads_opus.py
 время машины, YYYY-MM-DD). Повторный сбор в тот же день перезаписывает снимок этого дня —
 это осознанно (данные за "сегодня" дозревают в течение дня, поздний снимок точнее раннего).
 """
-import json
 import logging
-import os
-import tempfile
-import threading
 from datetime import date, datetime, timezone
 
 from app.ads_api import (
@@ -30,48 +26,24 @@ from app.ads_api import (
 from app.ads_api import fetch_insights_by_level, fetch_structure
 from app.ads_kpi import compute_kpi_verdicts, load_kpi_targets
 from app.i18n import t
-from app.project_store import get_effective_config, get_project, project_data_dir
+from app.project_data_store import get_json, set_json
+from app.project_store import get_effective_config, get_project
 
 logger = logging.getLogger("reels_dashboard")
 
-_lock = threading.Lock()
+_KEY = "daily_stats_history.json"
 
 ACTIVE_STATUSES = {"ACTIVE"}
 
 
-def _history_path(project_id: str = None) -> str:
-    return os.path.join(project_data_dir(project_id), "daily_stats_history.json")
-
-
 def load_history(project_id: str = None) -> list:
-    path = _history_path(project_id)
-    if not os.path.exists(path):
-        return []
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, OSError) as e:
-        logger.error("daily_stats_history.json повреждён (%s) — история недоступна", e)
-        return []
+    data = get_json(_KEY, default={}, project_id=project_id)
     days = data.get("days", [])
     return sorted(days, key=lambda d: d.get("date", ""), reverse=True)
 
 
 def _save_history(days: list, project_id: str = None):
-    path = _history_path(project_id)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with _lock:
-        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".daily_stats_", suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump({"days": days}, f, ensure_ascii=False, indent=2)
-            os.replace(tmp_path, path)
-        except BaseException:
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
-            raise
+    set_json(_KEY, {"days": days}, project_id=project_id)
 
 
 def render_recommendation(code, params: dict = None) -> str:

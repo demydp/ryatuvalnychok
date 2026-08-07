@@ -13,16 +13,11 @@ CPL-CPA/CTR/охоплення в порівнянні з ПОПЕРЕДНІМ �
 від-до) — визначає лише межі періоду (_resolve_range); і активна, і неактивна реклама кабінету
 завжди в звіті (fetch_structure без фільтра по effective_status).
 
-Зберігається по одному файлу на звіт в data/projects/<id>/reports/<report_id>.json (не rolling
-history, як daily_report.py) — поруч кешується PDF (<report_id>.pdf), щоб повторне завантаження
-не смикало Opus повторно (app/client_report_pdf.py рахує PDF лише один раз, тут — лише читання/
-запис байтів на диск).
+Зберігається по одному рядку ProjectData на звіт (не rolling history, як daily_report.py) —
+поруч кешується PDF окремим рядком (base64), щоб повторне завантаження не смикало Opus повторно
+(app/client_report_pdf.py рахує PDF лише один раз, тут — лише читання/запис байтів).
 """
-import json
 import logging
-import os
-import tempfile
-import threading
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
@@ -39,28 +34,26 @@ from app.ads_api import (
 from app.ads_placement import INSIGNIFICANT_DIFF_PCT
 from app.analysis import compute_organic_analysis
 from app.i18n import current_lang, t
-from app.project_store import get_active_project, get_effective_config, project_data_dir
+from app.project_data_store import delete_key, get_bytes, get_json, list_json_by_prefix, set_bytes, set_json
+from app.project_store import get_active_project, get_effective_config
 from app.style_profile import load_style_profile
 
 logger = logging.getLogger("reels_dashboard")
 
-_lock = threading.Lock()
-
 MIN_ADS_TO_COMPARE = 2
 
-
-def _reports_dir() -> str:
-    path = os.path.join(project_data_dir(), "reports")
-    os.makedirs(path, exist_ok=True)
-    return path
-
-
-def _report_json_path(report_id: str) -> str:
-    return os.path.join(_reports_dir(), f"{report_id}.json")
+# Один рядок ProjectData на звіт (key="report:<id>") + окремий рядок з кешованим PDF
+# (key="report_pdf:<id>", base64) — заміна файлів data/projects/<id>/reports/<id>.json/.pdf.
+_REPORT_KEY_PREFIX = "report:"
+_REPORT_PDF_KEY_PREFIX = "report_pdf:"
 
 
-def _report_pdf_path(report_id: str) -> str:
-    return os.path.join(_reports_dir(), f"{report_id}.pdf")
+def _report_key(report_id: str) -> str:
+    return f"{_REPORT_KEY_PREFIX}{report_id}"
+
+
+def _report_pdf_key(report_id: str) -> str:
+    return f"{_REPORT_PDF_KEY_PREFIX}{report_id}"
 
 
 def _resolve_range(report_type: str, date_from: str = None, date_to: str = None):
@@ -669,67 +662,29 @@ def build_client_report(report_type: str, date_from: str = None, date_to: str = 
 
 
 def save_client_report(report: dict) -> dict:
-    path = _report_json_path(report["id"])
-    with _lock:
-        fd, tmp_path = tempfile.mkstemp(dir=_reports_dir(), prefix=".client_report_", suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(report, f, ensure_ascii=False, indent=2)
-            os.replace(tmp_path, path)
-        except BaseException:
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
-            raise
+    set_json(_report_key(report["id"]), report)
     return report
 
 
 def load_client_reports() -> list:
-    d = _reports_dir()
-    reports = []
-    for name in os.listdir(d):
-        if not name.endswith(".json"):
-            continue
-        try:
-            with open(os.path.join(d, name), "r", encoding="utf-8") as f:
-                reports.append(json.load(f))
-        except (json.JSONDecodeError, OSError) as e:
-            logger.error("Пошкоджений звіт %s (%s) — пропускаю", name, e)
+    reports = list_json_by_prefix(_REPORT_KEY_PREFIX)
     reports.sort(key=lambda r: r.get("generated_at", ""), reverse=True)
     return reports
 
 
 def load_client_report(report_id: str):
-    path = _report_json_path(report_id)
-    if not os.path.exists(path):
-        return None
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return None
+    return get_json(_report_key(report_id), default=None)
 
 
 def delete_client_report(report_id: str) -> bool:
-    path = _report_json_path(report_id)
-    if not os.path.exists(path):
-        return False
-    os.remove(path)
-    pdf_path = _report_pdf_path(report_id)
-    if os.path.exists(pdf_path):
-        os.remove(pdf_path)
-    return True
+    deleted = delete_key(_report_key(report_id))
+    delete_key(_report_pdf_key(report_id))
+    return deleted
 
 
 def load_cached_pdf(report_id: str):
-    path = _report_pdf_path(report_id)
-    if not os.path.exists(path):
-        return None
-    with open(path, "rb") as f:
-        return f.read()
+    return get_bytes(_report_pdf_key(report_id))
 
 
 def save_cached_pdf(report_id: str, pdf_bytes: bytes):
-    with open(_report_pdf_path(report_id), "wb") as f:
-        f.write(pdf_bytes)
+    set_bytes(_report_pdf_key(report_id), pdf_bytes)

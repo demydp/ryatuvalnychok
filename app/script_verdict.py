@@ -173,11 +173,12 @@ def resolve_media_id_by_reference(posts: list, reference: str):
     return None
 
 
-def recompute_all_verdicts(posts: list, transcripts: dict):
+def recompute_all_verdicts(posts: list, transcripts: dict, project_id: str = None):
     """Пересчитывает вердикты всех привязанных скриптов на свежих данных — вызывается
     после каждого синка, потому что метрики рилса дозревают несколько дней и ранний
-    вердикт может быть ложным."""
-    scripts = load_saved_scripts()
+    вердикт может быть ложным. project_id — явний (фоновий синк іншого, не обов'язково
+    активного, проєкту, Этап 2); None = активний, як і раніше."""
+    scripts = load_saved_scripts(project_id=project_id)
     posts_by_id = {p["id"]: p for p in posts}
     changed = False
 
@@ -199,5 +200,5 @@ def recompute_all_verdicts(posts: list, transcripts: dict):
             changed = True
 
     if changed:
-        save_saved_scripts(scripts)
+        save_saved_scripts(scripts, project_id=project_id)
     return scripts

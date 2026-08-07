@@ -8,22 +8,14 @@ ID сигнала намеренно строится в app/signals.py так, 
 условие живёт (например, включает since_date усталости крео или ISO-неделю для вялотекущих
 метрик) — так "Відхилити" реально прячет именно ЭТУ ситуацию, а не глушит правило навсегда.
 """
-import json
-import os
-import tempfile
-import threading
 from datetime import datetime, timedelta, timezone
 
-from app.project_store import project_data_dir
+from app.project_data_store import get_json, set_json
 
-_lock = threading.Lock()
-
-
-def _state_path() -> str:
-    return os.path.join(project_data_dir(), "signals_state.json")
+_KEY = "signals_state.json"
 
 # Записи по сигналам, которых давно не пересчитывали (сама ситуация явно неактуальна),
-# просто мусор в файле — чистим лениво при каждой загрузке, как в daily_plan.py.
+# просто мусор — чистим лениво при каждой загрузке, как в daily_plan.py.
 PRUNE_AFTER_DAYS = 90
 
 
@@ -32,30 +24,11 @@ def _now_iso() -> str:
 
 
 def _load_raw() -> dict:
-    if not os.path.exists(_state_path()):
-        return {}
-    with _lock:
-        try:
-            with open(_state_path(), "r", encoding="utf-8") as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError):
-            return {}
+    return get_json(_KEY, default={})
 
 
 def _save(data: dict):
-    os.makedirs(os.path.dirname(_state_path()), exist_ok=True)
-    with _lock:
-        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(_state_path()), prefix=".signals_state_", suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            os.replace(tmp_path, _state_path())
-        except BaseException:
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
-            raise
+    set_json(_KEY, data)
 
 
 def load_state() -> dict:

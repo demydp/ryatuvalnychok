@@ -5,7 +5,6 @@
 Тяжёлая операция: скачивание видео + распознавание речи занимают время, поэтому
 вызывается только по кнопке (см. app/routes/hooks.py), никогда автоматически при синке.
 """
-import json
 import os
 import re
 import shutil
@@ -22,19 +21,18 @@ from app.hunt_classifier import classify_hunt_stage
 from app.i18n import current_lang
 from app.instagram_api import get_media_url
 from app.paths import DATA_DIR
-from app.project_store import project_data_dir
+from app.project_data_store import get_json, set_json
 
 WHISPER_MODELS = ("small", "medium")
 DEFAULT_MODEL = "small"
 MODEL_SIZE_HINTS = {"small": "~460 МБ", "medium": "~1.5 ГБ"}
 
 # Модели Whisper и ffmpeg — общие для всех проектов (тяжёлые бинарники/веса, не пользовательские
-# данные), поэтому остаются в DATA_DIR. Кэш транскриптов — per-project (см. project_store.py).
+# данные), поэтому остаются в DATA_DIR (локальный диск, не БД). Кэш транскриптов — per-project,
+# в БД (ProjectData, ключ "transcripts.json", см. app/project_data_store.py).
 WHISPER_MODELS_DIR = os.path.join(DATA_DIR, "whisper-models")
 
-
-def _transcripts_cache_path() -> str:
-    return os.path.join(project_data_dir(), "transcripts.json")
+_TRANSCRIPTS_KEY = "transcripts.json"
 
 # Пороги — стандартные дефолты самого Whisper (decode_options: logprob_threshold=-1.0,
 # no_speech_threshold=0.6, compression_ratio_threshold=2.4), не придуманы нами.
@@ -269,16 +267,11 @@ def process_media(
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def load_transcripts() -> dict:
-    if not os.path.exists(_transcripts_cache_path()):
-        return {}
-    with open(_transcripts_cache_path(), "r", encoding="utf-8") as f:
-        return json.load(f)
+def load_transcripts(project_id: str = None) -> dict:
+    return get_json(_TRANSCRIPTS_KEY, default={}, project_id=project_id)
 
 
 def save_transcript(media_id: str, record: dict):
     data = load_transcripts()
     data[media_id] = record
-    os.makedirs(os.path.dirname(_transcripts_cache_path()), exist_ok=True)
-    with open(_transcripts_cache_path(), "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    set_json(_TRANSCRIPTS_KEY, data)

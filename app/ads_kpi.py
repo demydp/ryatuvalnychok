@@ -3,18 +3,10 @@
 вердикт факт vs цель ("успех / норма / провал"). Хранится отдельным JSON-файлом в data/,
 как categories.json/style_profile.json — это пользовательские данные, а не секреты конфига.
 """
-import json
-import os
-import threading
-
 from app.i18n import t
-from app.project_store import project_data_dir
+from app.project_data_store import get_json, set_json
 
-_lock = threading.Lock()
-
-
-def _kpi_path(project_id: str = None) -> str:
-    return os.path.join(project_data_dir(project_id), "ads_kpi_targets.json")
+_KEY = "ads_kpi_targets.json"
 
 TARGET_FIELDS = ("target_cpl", "target_cpm", "target_ctr", "target_roas", "target_cost_per_result")
 
@@ -47,12 +39,7 @@ def get_benchmark_hints() -> dict:
 
 
 def load_kpi_targets(project_id: str = None) -> dict:
-    path = _kpi_path(project_id)
-    if not os.path.exists(path):
-        return {}
-    with _lock:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
+    return get_json(_KEY, default={}, project_id=project_id)
 
 
 def save_kpi_targets(objective: str, targets: dict) -> dict:
@@ -68,10 +55,7 @@ def save_kpi_targets(objective: str, targets: dict) -> dict:
         except (TypeError, ValueError):
             clean[field] = None
     current[objective] = clean
-    os.makedirs(os.path.dirname(_kpi_path()), exist_ok=True)
-    with _lock:
-        with open(_kpi_path(), "w", encoding="utf-8") as f:
-            json.dump(current, f, ensure_ascii=False, indent=2)
+    set_json(_KEY, current)
     return current[objective]
 
 
@@ -83,9 +67,7 @@ def delete_kpi_target(objective: str) -> bool:
     if objective not in current:
         return False
     del current[objective]
-    with _lock:
-        with open(_kpi_path(), "w", encoding="utf-8") as f:
-            json.dump(current, f, ensure_ascii=False, indent=2)
+    set_json(_KEY, current)
     return True
 
 

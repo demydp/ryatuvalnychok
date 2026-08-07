@@ -2,16 +2,12 @@
 Сохранённые сгенерированные скрипты. Каждый сгенерированный скрипт пишется на диск
 автоматически (см. app/routes/generator.py) — ничего не теряется при перезапуске.
 """
-import json
-import os
 import uuid
 from datetime import datetime, timezone
 
-from app.project_store import project_data_dir
+from app.project_data_store import get_json, set_json
 
-
-def _saved_scripts_path() -> str:
-    return os.path.join(project_data_dir(), "saved_scripts.json")
+_KEY = "saved_scripts.json"
 
 _FIELD_DEFAULTS = {
     "is_favorite": False,
@@ -29,17 +25,12 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def load_saved_scripts() -> list:
-    if not os.path.exists(_saved_scripts_path()):
-        return []
-    with open(_saved_scripts_path(), "r", encoding="utf-8") as f:
-        return json.load(f)
+def load_saved_scripts(project_id: str = None) -> list:
+    return get_json(_KEY, default=[], project_id=project_id)
 
 
-def save_saved_scripts(scripts: list):
-    os.makedirs(os.path.dirname(_saved_scripts_path()), exist_ok=True)
-    with open(_saved_scripts_path(), "w", encoding="utf-8") as f:
-        json.dump(scripts, f, ensure_ascii=False, indent=2)
+def save_saved_scripts(scripts: list, project_id: str = None):
+    set_json(_KEY, scripts, project_id=project_id)
 
 
 def add_script(record: dict) -> dict:

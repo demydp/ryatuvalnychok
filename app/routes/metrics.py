@@ -1,57 +1,30 @@
-import json
 import logging
-import os
-import tempfile
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
 
 from app.i18n import t
 from app.instagram_api import InstagramAPIError, fetch_all_media, fetch_media_insights
-from app.project_store import get_effective_config, project_data_dir
+from app.project_data_store import get_json, set_json
+from app.project_store import get_effective_config
 from app.script_verdict import recompute_all_verdicts
 from app.transcription import load_transcripts
 
 metrics_bp = Blueprint("metrics", __name__)
 logger = logging.getLogger("reels_dashboard")
 
+_MEDIA_CACHE_KEY = "media_cache.json"
 
-def media_cache_path() -> str:
+
+def load_cache(project_id: str = None) -> dict:
     """Единственное место, откуда читают/пишут media_cache.json — остальные модули
     (companion.py, ideas.py, signals.py, home_summary.py и т.д.) импортируют load_cache
-    отсюда же, а не держат свою копию пути."""
-    return os.path.join(project_data_dir(), "media_cache.json")
+    отсюда же, а не держат свою копию ключа."""
+    return get_json(_MEDIA_CACHE_KEY, default={"posts": [], "total_media": 0, "synced_at": None}, project_id=project_id)
 
 
-def load_cache() -> dict:
-    cache_path = media_cache_path()
-    if not os.path.exists(cache_path):
-        return {"posts": [], "total_media": 0, "synced_at": None}
-    try:
-        with open(cache_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError) as e:
-        logger.error("media_cache.json повреждён (%s) — начинаю с пустого кэша", e)
-        return {"posts": [], "total_media": 0, "synced_at": None}
-
-
-def save_cache(data: dict):
-    # Атомарная запись (temp-файл + os.replace) — при аварийном завершении процесса
-    # ровно во время сохранения кэш не должен превратиться в битый JSON, который потом
-    # роняет весь дашборд при следующем чтении.
-    cache_path = media_cache_path()
-    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(cache_path), prefix=".media_cache_", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        os.replace(tmp_path, cache_path)
-    except BaseException:
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
-        raise
+def save_cache(data: dict, project_id: str = None):
+    set_json(_MEDIA_CACHE_KEY, data, project_id=project_id)
 
 # metric name у Graph API -> имя поля в записи поста
 INSIGHT_FIELD_MAP = {
@@ -160,13 +133,16 @@ def _build_record(media: dict, insight: dict, is_ad: bool = False) -> dict:
     return record
 
 
-def run_metrics_sync() -> dict:
-    """Тело синка метрик Instagram активного проекта — общая логика для ручной кнопки
-    «Синхронизировать» (см. sync_metrics ниже) и фонового авто-обновления (см. app/scheduler.py),
-    чтобы оба пути гарантированно вели себя одинаково и не расходились по багам/поведению.
-    Возвращает {"error": ...} вместо исключения — вызывающий код сам решает, что за ошибка
-    (пользовательский HTTP 400 в ручном режиме или просто строка в лог у фонового job'а)."""
-    cfg = get_effective_config()
+def run_metrics_sync(project_id: str = None) -> dict:
+    """Тело синка метрик Instagram проекта — общая логика для ручной кнопки «Синхронизировать»
+    (см. sync_metrics ниже) и фонового авто-обновления (см. app/scheduler.py), чтобы оба пути
+    гарантированно вели себя одинаково и не расходились по багам/поведению. Возвращает
+    {"error": ...} вместо исключения — вызывающий код сам решает, что за ошибка (пользовательский
+    HTTP 400 в ручном режиме или просто строка в лог у фонового job'а).
+
+    project_id — явний (планувальник, Этап 2: фоновий синк конкретного проєкту, необов'язково
+    активного); None = активний проєкт поточної сесії, як і раніше (ручна кнопка)."""
+    cfg = get_effective_config(project_id)
     token = cfg["ig_access_token"]
     ig_user_id = cfg["ig_user_id"]
     max_media = cfg.get("max_media") or 100
@@ -180,7 +156,7 @@ def run_metrics_sync() -> dict:
         return {"error": t("metrics.msg.media_load_error", error=e)}
 
     # Флаг "была реклама" пользователь проставляет руками — при пересинке не должен слетать
-    previous_ad_flags = {p["id"]: p.get("is_ad", False) for p in load_cache().get("posts", [])}
+    previous_ad_flags = {p["id"]: p.get("is_ad", False) for p in load_cache(project_id=project_id).get("posts", [])}
 
     records = []
     for media in media_items:
@@ -213,13 +189,13 @@ def run_metrics_sync() -> dict:
         "posts": records,
     }
 
-    save_cache(result)
+    save_cache(result, project_id=project_id)
 
     # Метрики рилса дозревают несколько дней — пересчитываем вердикты привязанных
     # скриптов на каждом синке, чтобы ранние цифры не зафиксировали ложный результат.
     # Кэш уже сохранён выше — сбой здесь не должен превращать успешный синк в ошибку 500.
     try:
-        recompute_all_verdicts(records, load_transcripts())
+        recompute_all_verdicts(records, load_transcripts(project_id=project_id), project_id=project_id)
     except Exception as e:
         logger.error("Не удалось пересчитать вердикты скриптов после синка: %s", e)
 

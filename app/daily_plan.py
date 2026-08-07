@@ -1,29 +1,21 @@
 """
-"Мій план на день" (вкладка "Головна") — простой чек-лист задач на сегодня, хранится
-локально в data/daily_plan.json. Невыполненные задачи автоматически переносятся на
+"Мій план на день" (вкладка "Головна") — простой чек-лист задач на сегодня, хранится в БД
+(ProjectData, ключ "daily_plan.json"). Невыполненные задачи автоматически переносятся на
 следующий день при первом обращении в новый календарный день (локальное время машины) —
 пользователю не нужно вручную копировать список, если вчера не успел.
 
 Выполненные задачи остаются "приклеены" к дню, когда их отметили — это не журнал/история
 (отдельной вкладки для неё нет), а просто чтобы не потерять сам факт до следующей чистки.
 """
-import json
-import os
-import tempfile
-import threading
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
-from app.project_store import project_data_dir
+from app.project_data_store import get_json, set_json
 
-_lock = threading.Lock()
+_KEY = "daily_plan.json"
 
-
-def _plan_path() -> str:
-    return os.path.join(project_data_dir(), "daily_plan.json")
-
-# Выполненные задачи старше этого — просто мусор в файле, не показываются нигде (нет вкладки
-# истории) и только раздувают daily_plan.json. Чистим лениво при каждой загрузке.
+# Выполненные задачи старше этого — просто мусор, не показываются нигде (нет вкладки
+# истории) и только раздувают запись. Чистим лениво при каждой загрузке.
 PRUNE_DONE_AFTER_DAYS = 60
 
 
@@ -36,31 +28,13 @@ def _now_iso() -> str:
 
 
 def _load() -> dict:
-    if not os.path.exists(_plan_path()):
-        return {"tasks": []}
-    try:
-        with open(_plan_path(), "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return {"tasks": []}
+    data = get_json(_KEY, default={"tasks": []})
     data.setdefault("tasks", [])
     return data
 
 
 def _save(data: dict):
-    os.makedirs(os.path.dirname(_plan_path()), exist_ok=True)
-    with _lock:
-        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(_plan_path()), prefix=".daily_plan_", suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            os.replace(tmp_path, _plan_path())
-        except BaseException:
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
-            raise
+    set_json(_KEY, data)
 
 
 def _prune_old_done(tasks: list) -> list:
