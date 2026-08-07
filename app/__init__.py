@@ -1,22 +1,39 @@
 import logging
+import os
 
-from flask import Flask, jsonify, render_template
+from dotenv import load_dotenv
+from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask_login import LoginManager, current_user
 
-from app.config_store import load_config
 from app.i18n import load_translations, t
 from app.logging_setup import setup_logging
-from app.project_store import ensure_migrated, get_active_project, load_projects
 from app.version import __version__
 
 
 def create_app():
+    load_dotenv()  # DATABASE_PUBLIC_URL/ENCRYPTION_KEY/SECRET_KEY з .env (Railway їх задає як env vars напряму)
+
     setup_logging()
     logger = logging.getLogger("reels_dashboard")
 
-    ensure_migrated()
-
     app = Flask(__name__)
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or _dev_secret_key_fallback(logger)
 
+    from app.db import db, init_db
+
+    init_db(app)
+
+    login_manager = LoginManager()
+    login_manager.login_view = "auth.login"
+    login_manager.init_app(app)
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        from app.models import User
+
+        return db.session.get(User, int(user_id))
+
+    from app.routes.auth import auth_bp
     from app.routes.home import home_bp
     from app.routes.settings import settings_bp
     from app.routes.metrics import metrics_bp
@@ -34,6 +51,7 @@ def create_app():
     from app.routes.signals import signals_bp
     from app.routes.projects import projects_bp
 
+    app.register_blueprint(auth_bp)
     app.register_blueprint(onboarding_bp, url_prefix="/api/onboarding")
     app.register_blueprint(updates_bp, url_prefix="/api/updates")
     app.register_blueprint(home_bp, url_prefix="/api/home")
@@ -51,9 +69,27 @@ def create_app():
     app.register_blueprint(signals_bp, url_prefix="/api/signals")
     app.register_blueprint(projects_bp, url_prefix="/api/projects")
 
+    # Ізоляція даних між юзерами (Этап 1): ВСЕ, крім /login /register /logout і статики,
+    # вимагає активної сесії — один before_request замість @login_required на кожному з
+    # ~15 блюпринтів. /api/* без сесії чесно 401 JSON (фронт вже вміє показувати помилку
+    # з fetch), інші шляхи — редірект на /login?next=....
+    @app.before_request
+    def require_login():
+        if request.endpoint is None:
+            return None
+        if request.endpoint == "static" or request.endpoint.startswith("auth."):
+            return None
+        if not current_user.is_authenticated:
+            if request.path.startswith("/api/"):
+                return jsonify({"error": t("auth.msg.login_required")}), 401
+            return redirect(url_for("auth.login", next=request.path))
+        return None
+
     @app.route("/")
     def index():
-        cfg = load_config()
+        from app.project_store import get_active_project, load_projects
+
+        cfg = _current_user_config()
         if not cfg.get("setup_completed"):
             return render_template("onboarding.html", i18n=load_translations())
         return render_template(
@@ -78,3 +114,18 @@ def create_app():
     start_scheduler(app)
 
     return app
+
+
+def _current_user_config() -> dict:
+    from app.config_store import load_config
+
+    return load_config()
+
+
+def _dev_secret_key_fallback(logger) -> str:
+    logger.warning(
+        "SECRET_KEY не задано в оточенні — використовую фіксований dev-ключ (сесії НЕ будуть "
+        "безпечними/persistent між рестартами процесу). Обов'язково задайте SECRET_KEY у "
+        "Railway variables / .env перед реальним використанням."
+    )
+    return "dev-insecure-secret-key-set-SECRET_KEY-env-var"

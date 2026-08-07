@@ -13,9 +13,14 @@
 <body class="onboarding-body">
   <header class="topbar">
     <div class="brand">Рятуваль<span>ничок</span></div>
-    <div class="lang-switch" role="group" aria-label="Язык интерфейса / Мова інтерфейсу">
-      <button type="button" class="lang-btn" data-lang="ru">РУС</button>
-      <button type="button" class="lang-btn" data-lang="uk">УКР</button>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <div class="lang-switch" role="group" aria-label="Язык интерфейса / Мова інтерфейсу">
+        <button type="button" class="lang-btn" data-lang="ru">РУС</button>
+        <button type="button" class="lang-btn" data-lang="uk">УКР</button>
+      </div>
+      <form method="POST" action="{{ url_for('auth.logout') }}">
+        <button class="btn secondary" type="submit" data-i18n="auth.logout_btn">Выйти</button>
+      </form>
     </div>
   </header>
 
