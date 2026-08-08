@@ -735,6 +735,7 @@
   const smmTopContentBox = document.getElementById("smm-report-top-content");
   const smmHooksBox = document.getElementById("smm-report-hooks");
   const smmCategoriesBox = document.getElementById("smm-report-categories");
+  const smmStoriesBox = document.getElementById("smm-report-stories");
   const smmBusinessBox = document.getElementById("smm-report-business");
   const smmReportsListEl = document.getElementById("smm-reports-list");
   const smmReportsEmpty = document.getElementById("smm-reports-empty");
@@ -920,6 +921,56 @@
     `;
   }
 
+  function smmStoriesHtml(stories) {
+    const heading = `<div class="subtitle" style="margin-bottom:6px;">${I18N.t("reports.smm.stories_heading")}</div>`;
+    if (!stories || !stories.count) {
+      return `${heading}<div style="color:var(--muted); font-size:13px;">${I18N.t("reports.smm.msg.no_stories_data")}</div>`;
+    }
+    const totals = stories.totals || {};
+    const totalsRow = `
+      <div style="display:flex; gap:18px; flex-wrap:wrap; font-size:13px; margin-bottom:10px;">
+        <div><span style="color:var(--muted);">${I18N.t("reports.smm.stories.count")}:</span> <b>${stories.count}</b></div>
+        <div><span style="color:var(--muted);">${I18N.t("reports.smm.stories.reach_total")}:</span> <b>${fmtMoney(totals.reach)}</b></div>
+        <div><span style="color:var(--muted);">${I18N.t("reports.smm.stories.replies_total")}:</span> <b>${fmtMoney(totals.replies)}</b></div>
+        <div><span style="color:var(--muted);">${I18N.t("reports.smm.stories.navigation_total")}:</span> <b>${fmtMoney(totals.navigation)}</b></div>
+        <div><span style="color:var(--muted);">${I18N.t("reports.smm.stories.profile_visits_total")}:</span> <b>${fmtMoney(totals.profile_visits)}</b></div>
+        <div><span style="color:var(--muted);">${I18N.t("reports.smm.stories.interactions_total")}:</span> <b>${fmtMoney(totals.total_interactions)}</b></div>
+      </div>
+    `;
+    const items = stories.items || [];
+    const tableHtml = items.length
+      ? `
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+          <thead><tr style="text-align:left; color:var(--muted);">
+            <th style="padding:4px 8px;">${I18N.t("reports.smm.stories.col_story")}</th>
+            <th style="padding:4px 8px;">${I18N.t("reports.smm.stories.col_date")}</th>
+            <th style="padding:4px 8px;">${I18N.t("reports.smm.stories.col_type")}</th>
+            <th style="padding:4px 8px;">${I18N.t("reports.smm.stories.col_reach")}</th>
+            <th style="padding:4px 8px;">${I18N.t("reports.smm.stories.col_replies")}</th>
+            <th style="padding:4px 8px;">${I18N.t("reports.smm.stories.col_navigation")}</th>
+            <th style="padding:4px 8px;">${I18N.t("reports.smm.stories.col_profile_visits")}</th>
+            <th style="padding:4px 8px;">${I18N.t("reports.smm.stories.col_interactions")}</th>
+          </tr></thead>
+          <tbody>
+            ${items.map((s) => `
+              <tr style="border-top:1px solid var(--border);">
+                <td style="padding:6px 8px;">${s.title || I18N.t("common.no_data")}</td>
+                <td style="padding:6px 8px;">${s.date_label || ""}</td>
+                <td style="padding:6px 8px;">${s.media_type_label || ""}</td>
+                <td style="padding:6px 8px;">${fmtMoney(s.reach)}</td>
+                <td style="padding:6px 8px;">${fmtMoney(s.replies)}</td>
+                <td style="padding:6px 8px;">${fmtMoney(s.navigation)}</td>
+                <td style="padding:6px 8px;">${fmtMoney(s.profile_visits)}</td>
+                <td style="padding:6px 8px;">${fmtMoney(s.total_interactions)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `
+      : "";
+    return `${heading}${totalsRow}${tableHtml}`;
+  }
+
   function renderSmmReport(report) {
     if (!report) {
       smmLatestBox.style.display = "none";
@@ -949,6 +1000,7 @@
     smmTopContentBox.innerHTML = smmTopContentHtml(report.top_content);
     smmHooksBox.innerHTML = smmHooksHtml(report.hooks);
     smmCategoriesBox.innerHTML = smmCategoriesHtml(report.categories);
+    smmStoriesBox.innerHTML = smmStoriesHtml(report.stories);
   }
 
   function smmReportCardHtml(r) {

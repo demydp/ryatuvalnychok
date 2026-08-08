@@ -87,6 +87,47 @@ def _top_content_table(report: dict, sty):
     return data_table(header_labels, rows, (0.6, 0.2, 0.2), sty)
 
 
+def _stories_summary_grid(report: dict, sty):
+    stories = report.get("stories") or {}
+    totals = stories.get("totals") or {}
+    header_labels = [
+        t("reports.smm.stories.count"), t("reports.smm.stories.reach_total"),
+        t("reports.smm.stories.replies_total"), t("reports.smm.stories.navigation_total"),
+        t("reports.smm.stories.profile_visits_total"), t("reports.smm.stories.interactions_total"),
+    ]
+    values = [
+        str(stories.get("count", 0)), fmt(totals.get("reach")), fmt(totals.get("replies")),
+        fmt(totals.get("navigation")), fmt(totals.get("profile_visits")), fmt(totals.get("total_interactions")),
+    ]
+    deltas = ["" for _ in header_labels]
+    return value_grid(header_labels, values, deltas, sty)
+
+
+def _stories_table(report: dict, sty):
+    items = (report.get("stories") or {}).get("items") or []
+    if not items:
+        return None
+    header_labels = [
+        t("reports.smm.stories.col_story"), t("reports.smm.stories.col_date"),
+        t("reports.smm.stories.col_type"), t("reports.smm.stories.col_reach"),
+        t("reports.smm.stories.col_replies"), t("reports.smm.stories.col_navigation"),
+        t("reports.smm.stories.col_profile_visits"), t("reports.smm.stories.col_interactions"),
+    ]
+    rows = []
+    for s in items:
+        rows.append([
+            Paragraph(s.get("title") or t("common.no_data"), sty["table_cell"]),
+            Paragraph(s.get("date_label") or "", sty["table_cell"]),
+            Paragraph(s.get("media_type_label") or "", sty["table_cell"]),
+            Paragraph(fmt(s.get("reach")), sty["table_cell"]),
+            Paragraph(fmt(s.get("replies")), sty["table_cell"]),
+            Paragraph(fmt(s.get("navigation")), sty["table_cell"]),
+            Paragraph(fmt(s.get("profile_visits")), sty["table_cell"]),
+            Paragraph(fmt(s.get("total_interactions")), sty["table_cell"]),
+        ])
+    return data_table(header_labels, rows, (0.22, 0.13, 0.08, 0.11, 0.11, 0.11, 0.12, 0.12), sty)
+
+
 def _hooks_table(report: dict, sty):
     hook_summary = (report.get("hooks") or {}).get("hook_type_summary") or []
     if not hook_summary:
@@ -208,6 +249,17 @@ def build_smm_report_pdf_bytes(report: dict) -> bytes:
         story.append(categories_table)
     else:
         story.append(Paragraph(t("reports.smm.msg.no_categories_data"), sty["muted"]))
+
+    story_count = (report.get("stories") or {}).get("count", 0)
+    story.append(Paragraph(t("reports.smm.stories_heading"), sty["heading"]))
+    if story_count:
+        story.append(_stories_summary_grid(report, sty))
+        story.append(Spacer(1, 6))
+        stories_table = _stories_table(report, sty)
+        if stories_table is not None:
+            story.append(stories_table)
+    else:
+        story.append(Paragraph(t("reports.smm.msg.no_stories_data"), sty["muted"]))
 
     business_plain = (report.get("summary") or {}).get("business_plain")
     if business_plain:

@@ -22,7 +22,7 @@ from statistics import mean
 from app.ads_api import AdsAPIError
 from app.analysis import compute_organic_analysis
 from app.categories import compute_category_stats
-from app.client_report import _filter_posts_by_period, _fmt, _pct_change, _delta_pct_text, _resolve_range
+from app.client_report import _filter_posts_by_period, _fmt, _parse_ts, _pct_change, _delta_pct_text, _resolve_range
 from app.hooks_ai import compute_hook_stats
 from app.i18n import current_lang, t
 from app.project_data_store import delete_key, get_bytes, get_json, list_json_by_prefix, set_bytes, set_json
@@ -84,6 +84,67 @@ def _account_metrics(posts: list) -> dict:
         "followers_delta": None,
         "best_post": best_post,
     }
+
+
+STORY_TITLE_MAX_WORDS = 8
+_STORY_METRIC_FIELDS = ("reach", "replies", "navigation", "profile_visits", "total_interactions")
+
+
+def _story_type_label(media_type: str) -> str:
+    if media_type == "VIDEO":
+        return t("reports.smm.stories.type_video")
+    if media_type == "IMAGE":
+        return t("reports.smm.stories.type_image")
+    return media_type or t("common.no_data")
+
+
+def _story_title(story: dict, dt) -> str:
+    """Instagram Graph API НЕ віддає підпис/текст для медіа типу STORY (перевірено емпірично при
+    діагностиці 08.08.2026 — див. app/instagram_api.py::STORY_FIELDS, там немає "caption", на
+    відміну від MEDIA_FIELDS для звичайних постів) — story.get("caption") тут ЗАВЖДИ порожній
+    сьогодні. Якщо Meta колись розширить API й підпис зʼявиться, беремо перші кілька слів;
+    інакше чесний фоллбек "Сторіс від дата, час", а не вигадана назва."""
+    caption = (story.get("caption") or "").strip()
+    if caption:
+        words = caption.split()
+        short = " ".join(words[:STORY_TITLE_MAX_WORDS])
+        return short + ("…" if len(words) > STORY_TITLE_MAX_WORDS else "")
+    if dt:
+        return t("reports.smm.stories.untitled", date=dt.strftime("%d.%m.%Y"), time=dt.strftime("%H:%M"))
+    return t("reports.smm.stories.untitled_no_date")
+
+
+def _sum_or_none(values):
+    vals = [v for v in values if isinstance(v, (int, float))]
+    return round(sum(vals)) if vals else None
+
+
+def _build_stories_summary(stories: list) -> dict:
+    """Розділ «Сторіс» СММ-звіту. Джерело — app/routes/stories.py::load_cache() (накопичена
+    ІСТОРІЯ в ProjectData, а не лише живі сторіс прямо зараз — так за тижневий/довільний період
+    в звіт потрапляють і вже архівні сторіс, що зникли з Instagram). Період фільтрується тим
+    самим _filter_posts_by_period, що й пости, — обидва записи мають поле "timestamp"."""
+    items = []
+    for story in sorted(stories, key=lambda s: s.get("timestamp") or "", reverse=True):
+        dt = _parse_ts(story.get("timestamp"))
+        date_label = dt.strftime("%d.%m.%Y %H:%M") if dt else t("common.no_data")
+        items.append({
+            "id": story.get("id"),
+            "timestamp": story.get("timestamp"),
+            "date_label": date_label,
+            "title": _story_title(story, dt),
+            "media_type_label": _story_type_label(story.get("media_type")),
+            "reach": story.get("reach"),
+            "replies": story.get("replies"),
+            "navigation": story.get("navigation"),
+            "profile_visits": story.get("profile_visits"),
+            "total_interactions": story.get("total_interactions"),
+            "insights_status": story.get("insights_status"),
+            "insights_reason": story.get("insights_reason"),
+        })
+
+    totals = {field: _sum_or_none([s[field] for s in items]) for field in _STORY_METRIC_FIELDS}
+    return {"count": len(items), "totals": totals, "items": items}
 
 
 _TREND_FIELDS = [
@@ -216,6 +277,18 @@ def build_smm_report(report_type: str, date_from: str = None, date_to: str = Non
     posts = _filter_posts_by_period(all_posts, since, until)
     prev_posts = _filter_posts_by_period(all_posts, prev_since, prev_until)
 
+    # Сторіс — окремий, необов'язковий блок: якщо кеш сторіс ще не синхронізований чи щось у
+    # ньому зламано, звіт по постах все одно має побудуватись (честно з count=0), а не впасти.
+    try:
+        from app.routes.stories import load_cache as load_stories_cache
+
+        all_stories = load_stories_cache().get("stories", [])
+    except Exception:
+        logger.exception("СММ-звіт: не вдалося прочитати stories_history.json")
+        all_stories = []
+
+    stories_summary = _build_stories_summary(_filter_posts_by_period(all_stories, since, until))
+
     account_metrics = _account_metrics(posts)
     prev_account_metrics = _account_metrics(prev_posts)
     trend = _build_trend(account_metrics, prev_account_metrics)
@@ -271,6 +344,7 @@ def build_smm_report(report_type: str, date_from: str = None, date_to: str = Non
         "prev_account_metrics": prev_account_metrics,
         "trend": trend,
         "top_content": organic_analysis,
+        "stories": stories_summary,
         "hooks": hook_stats,
         "categories": category_stats,
         "summary": summary,
