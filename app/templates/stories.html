@@ -1,0 +1,67 @@
+<h1 data-i18n="stories.title">Сторіс</h1>
+<p class="subtitle" id="stories-subtitle" data-i18n="stories.subtitle_default">Натисни «Синхронізувати», щоб завантажити активні сторіс з Instagram.</p>
+
+<div class="toolbar">
+  <button class="btn" id="btn-stories-sync" data-i18n="stories.sync_btn">Синхронізувати</button>
+  <span class="meta" id="stories-sync-meta"></span>
+  <span class="meta" id="stories-sync-ago"></span>
+</div>
+
+<p class="hint" style="margin: -8px 0 16px;" data-i18n="stories.hint">
+  Instagram Graph API віддає список сторіс лише поки вони живі (~24 год), а їхні інсайти — трохи довше.
+  Тому дані накопичуються в історію при кожному синку (ручному або фоновому — раз на кілька годин)
+  і не зникають після того, як сама сторіс зникне з Instagram.
+</p>
+
+<div id="stories-content" style="display:none;">
+  <div class="card">
+    <h2 data-i18n="stories.card.reach_breakdown">Охоплення акаунта: підписники / не підписники</h2>
+    <div id="reach-breakdown-body"></div>
+    <p class="hint" style="margin: 10px 0 0;" data-i18n="stories.hint_follow_type">
+      Розбивку «підписники / не підписники» Instagram API віддає ЛИШЕ на рівні всього акаунта — по кожній
+      окремій сторіс чи посту такого розподілу API чесно не надає (перевірено: Graph API прямо відхиляє такий запит).
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0;" data-i18n="stories.table.heading">Опубліковані сторіс</h2>
+      <span class="meta" id="stories-table-meta"></span>
+    </div>
+    <div class="table-scroll">
+      <table id="stories-table">
+        <colgroup>
+          <col style="width:3%">
+          <col style="width:6%">
+          <col style="width:10%">
+          <col style="width:9%">
+          <col style="width:9%">
+          <col style="width:9%">
+          <col style="width:10%">
+          <col style="width:10%">
+          <col style="width:9%">
+          <col style="width:9%">
+          <col style="width:9%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th></th>
+            <th><span data-i18n="stories.th.thumbnail">Прев'ю</span></th>
+            <th><span data-i18n="stories.th.date">Опубліковано</span></th>
+            <th><span data-i18n="stories.th.status">Статус</span></th>
+            <th><span data-i18n="stories.th.reach" data-i18n-title="stories.th.reach_hint" title="Скільки унікальних людей побачило сторіс">Reach</span></th>
+            <th><span data-i18n="stories.th.replies" data-i18n-title="stories.th.replies_hint" title="Скільки людей відповіли на сторіс у директ">Відповіді</span></th>
+            <th><span data-i18n="stories.th.navigation" data-i18n-title="stories.th.navigation_hint" title="Сумарна кількість дій навігації — без розбивки по напряму, API цього більше не дає">Навігація</span></th>
+            <th><span data-i18n="stories.th.profile_visits">Переходи в профіль</span></th>
+            <th><span data-i18n="stories.th.shares">Репости</span></th>
+            <th><span data-i18n="stories.th.total_interactions">Взаємодії</span></th>
+            <th><span data-i18n="stories.th.follows">Нові підписки</span></th>
+          </tr>
+        </thead>
+        <tbody id="stories-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="stories-empty" class="empty-state" data-i18n="stories.empty">Даних поки немає.</div>

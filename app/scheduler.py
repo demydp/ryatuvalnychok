@@ -2,8 +2,8 @@
 Фоновые задачи (пункты B и D ТЗ, + авто-обновление данных):
 1. Проверка/автопродление IG-токена — чтобы токен не истекал незаметно (см. token_refresh.py).
 2. Сбор ежедневного среза активной рекламы в историю отчётов (см. daily_report.py).
-3. Авто-обновление метрик Instagram и структуры рекламного кабинета — раз в AUTO_REFRESH_HOURS
-   часов, чтобы не нажимать «Синхронизировать» вручную.
+3. Авто-обновление метрик Instagram, сторис и структуры рекламного кабинета — раз в
+   AUTO_REFRESH_HOURS часов, чтобы не нажимать «Синхронизировать» вручную.
 
 BackgroundScheduler живёт в том же процессе, что и Flask.
 
@@ -132,6 +132,7 @@ def _run_auto_refresh_job(app):
     не дати одному впалому проєкту зупинити чергу і додатково притримати темп після rate-limit'у."""
     from app.routes.ads import run_ads_sync, save_ads_cache
     from app.routes.metrics import run_metrics_sync
+    from app.routes.stories import run_stories_sync
 
     with app.app_context():
         pairs = _all_user_project_pairs()
@@ -168,6 +169,23 @@ def _run_auto_refresh_job(app):
                     logger.info("Авто-обновление рекламы (%s): готово, кампаний %s", project["name"], len(ads_result.get("campaigns", [])))
             except Exception:
                 logger.exception("Авто-обновление рекламы (%s) упало с исключением", project["name"])
+
+            try:
+                # Сторіс живуть у Graph API лише ~24 год (+ трохи довше для самих інсайтів) —
+                # кожні AUTO_REFRESH_HOURS (4) годин синк встигає підхопити кожну сторіс щонайменше
+                # кілька разів до її зникнення, тому окремий частіший job не потрібен.
+                stories_result = run_stories_sync(project_id=project_id)
+                if "error" in stories_result:
+                    logger.info("Авто-обновление сторис (%s): пропущено (%s)", project["name"], stories_result["error"])
+                    if _is_rate_limit_message(stories_result["error"]):
+                        delay = max(delay, RATE_LIMIT_BACKOFF_SEC)
+                else:
+                    logger.info(
+                        "Авто-обновление сторис (%s): готово, живых %s, всего в истории %s",
+                        project["name"], stories_result.get("active_count"), len(stories_result.get("stories", [])),
+                    )
+            except Exception:
+                logger.exception("Авто-обновление сторис (%s) упало с исключением", project["name"])
 
         time.sleep(delay)
 

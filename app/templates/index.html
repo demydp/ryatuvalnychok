@@ -53,6 +53,7 @@
       <div class="tab-group-buttons">
         <button class="tab-btn" data-tab="settings" data-i18n="nav.tab.settings">Настройки</button>
         <button class="tab-btn" data-tab="metrics" data-i18n="nav.tab.metrics">Метрики</button>
+        <button class="tab-btn" data-tab="stories" data-i18n="nav.tab.stories">Сторіс</button>
         <button class="tab-btn" data-tab="insights" data-i18n="nav.tab.insights">Что заходит</button>
         <button class="tab-btn" data-tab="hooks" data-i18n="nav.tab.hooks">Хук-анализ</button>
         <button class="tab-btn" data-tab="categories" data-i18n="nav.tab.categories">Рубрики</button>
@@ -100,6 +101,10 @@
 
     <section id="tab-metrics" class="tab-panel">
       {% include "metrics.html" %}
+    </section>
+
+    <section id="tab-stories" class="tab-panel">
+      {% include "stories.html" %}
     </section>
 
     <section id="tab-insights" class="tab-panel">
@@ -152,6 +157,7 @@
   <script src="{{ url_for('static', filename='js/home.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='js/signals.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='js/metrics.js') }}?v={{ app_version }}"></script>
+  <script src="{{ url_for('static', filename='js/stories.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='js/insights.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='js/hooks.js') }}?v={{ app_version }}"></script>
   <script src="{{ url_for('static', filename='js/categories.js') }}?v={{ app_version }}"></script>

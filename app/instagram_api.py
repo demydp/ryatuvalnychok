@@ -340,6 +340,138 @@ def _fetch_metrics_recursive(access_token: str, media_id: str, metric_names: lis
     return values, unsupported, left_raw + right_raw, False
 
 
+# Сторіс (Stories) — перевірено емпірично на реальному акаунті (діагностика 08.08.2026):
+# 1. /{ig-user-id}/stories віддає ЛИШЕ живі сторіс (до ~24 год з публікації), з полями нижче.
+# 2. Легітимний список метрик /{media-id}/insights для media_product_type=STORY отриманий
+#    ПРЯМО з відповіді Graph API на невалідну назву метрики (код 100 сам перелічує весь список
+#    для цього медіа) — з нього для сторіс підходять саме ці; impressions/saved/likes/comments
+#    Graph API для сторіс мовчки ігнорує (це метрики постів/рілсів, не сторіс).
+# 3. Старих окремих метрик taps_forward/taps_back/exits у поточній версії API вже НЕМА —
+#    Meta прибрала їх. Лишилась лише агрегована "navigation" без розбивки напряму: жодна
+#    перевірена назва breakdown ("story_navigation_action_type", "action_type") не відкрила
+#    реальний розподіл — breakdown або відхиляється помилкою "Incompatible breakdowns", або
+#    мовчки ігнорується без ефекту. Чесно показуємо лише сумарний navigation.
+STORY_FIELDS = "id,media_type,media_product_type,timestamp,permalink,media_url,thumbnail_url"
+
+STORY_METRICS = [
+    "reach", "replies", "navigation", "profile_activity", "profile_visits",
+    "shares", "total_interactions", "follows",
+]
+
+# Graph API повертає це для сторіс із замало переглядів (перевірено емпірично) — окремий
+# код помилки, не error_subcode як SUBCODE_PRE_BUSINESS вище, і стосується САМЕ сторіс.
+CODE_NOT_ENOUGH_VIEWERS = 10
+REASON_INSUFFICIENT_VIEWERS_KEY = "instagram.reason.insufficient_viewers"
+
+
+def fetch_active_stories(access_token: str, ig_user_id: str) -> list:
+    """Живі сторіс просто зараз. Пагінації свідомо нема — живих сторіс завжди мало (Instagram
+    сам обмежує їх кількість і час життя ~24 год), на відміну від fetch_all_media."""
+    data = _get(f"{GRAPH_BASE}/{ig_user_id}/stories", {"fields": STORY_FIELDS, "access_token": access_token})
+    return data.get("data", [])
+
+
+def fetch_story_insights(access_token: str, story_id: str) -> dict:
+    """Як fetch_media_insights, але для сторіс: свій список метрик (STORY_METRICS) і своя чесна
+    причина повної недоступності — "недостатньо переглядів" (CODE_NOT_ENOUGH_VIEWERS), а не
+    "до переходу в бізнес-акаунт" (SUBCODE_PRE_BUSINESS), як у звичайних постів."""
+    metrics, unsupported, raw, insufficient = _fetch_story_metrics_recursive(access_token, story_id, STORY_METRICS)
+    if insufficient:
+        return {"status": "unavailable_insufficient_viewers", "reason": t(REASON_INSUFFICIENT_VIEWERS_KEY)}
+    return {"status": "ok", "metrics": metrics, "unsupported": unsupported, "raw": raw}
+
+
+def _fetch_story_metrics_recursive(access_token: str, story_id: str, metric_names: list):
+    """Той самий чесний рекурсивний фоллбек, що й _fetch_metrics_recursive для постів, але
+    термінальна умова інша: CODE_NOT_ENOUGH_VIEWERS означає недоступність УСІХ метрик сторіс
+    цілком (поріг переглядів на рівні медіа), а не однієї конкретної метрики."""
+    url = f"{GRAPH_BASE}/{story_id}/insights"
+    data, error = _get_raw(url, {"metric": ",".join(metric_names), "access_token": access_token})
+
+    if not error:
+        values = {}
+        for entry in data.get("data", []):
+            name = entry.get("name")
+            if "total_value" in entry:
+                value = entry["total_value"].get("value")
+            else:
+                vs = entry.get("values", [])
+                value = vs[0].get("value") if vs else None
+            values[name] = value
+        return values, {}, [data], False
+
+    if error.get("code") == CODE_NOT_ENOUGH_VIEWERS:
+        return {}, {}, [{"error": error}], True
+
+    message = error.get("message", t("instagram.error.metric_unavailable"))
+    if len(metric_names) == 1:
+        return {}, {metric_names[0]: message}, [{"metric": metric_names[0], "error": error}], False
+
+    mid = len(metric_names) // 2
+    left_vals, left_unsupported, left_raw, left_insufficient = _fetch_story_metrics_recursive(
+        access_token, story_id, metric_names[:mid]
+    )
+    if left_insufficient:
+        return {}, {}, left_raw, True
+    right_vals, right_unsupported, right_raw, right_insufficient = _fetch_story_metrics_recursive(
+        access_token, story_id, metric_names[mid:]
+    )
+    if right_insufficient:
+        return {}, {}, right_raw, True
+
+    values = {**left_vals, **right_vals}
+    unsupported = {**left_unsupported, **right_unsupported}
+    return values, unsupported, left_raw + right_raw, False
+
+
+def fetch_reach_follow_type_breakdown(access_token: str, ig_user_id: str) -> dict:
+    """Розбивка охоплення акаунта на підписників/не підписників (breakdown=follow_type) —
+    ПРАЦЮЄ ЛИШЕ на рівні акаунта. Перевірено емпірично: на рівні звичайного поста і на рівні
+    сторіс Graph API однаково відповідає помилкою "Incompatible breakdowns (follow_type) for
+    metric (reach)" — Instagram ЧЕСНО цього не дає для окремого поста/сторіс, це не наш недогляд.
+    period=day для reach обов'язковий (без period Graph API взагалі відхиляє запит з breakdown)."""
+    params = {
+        "metric": "reach",
+        "period": "day",
+        "metric_type": "total_value",
+        "breakdown": "follow_type",
+        "access_token": access_token,
+    }
+    data, error = _get_raw(f"{GRAPH_BASE}/{ig_user_id}/insights", params)
+    if error:
+        return {
+            "available": False, "follower": None, "non_follower": None,
+            "total": None, "follower_pct": None, "note": error.get("message") or REASON_NO_DATA,
+        }
+
+    entries = data.get("data") or []
+    total_value = entries[0].get("total_value") if entries else None
+    total = (total_value or {}).get("value")
+    breakdowns = (total_value or {}).get("breakdowns") if total_value else None
+    results = (breakdowns[0].get("results") if breakdowns else None) or []
+    if not results:
+        return {
+            "available": False, "follower": None, "non_follower": None,
+            "total": total, "follower_pct": None, "note": REASON_NO_DATA,
+        }
+
+    by_type = {}
+    for r in results:
+        dims = r.get("dimension_values") or []
+        value = r.get("value") or 0
+        if dims:
+            by_type[dims[0]] = value
+
+    follower = by_type.get("FOLLOWER", 0)
+    non_follower = by_type.get("NON_FOLLOWER", 0)
+    follower_pct = round(follower / total * 100, 1) if total else None
+
+    return {
+        "available": True, "follower": follower, "non_follower": non_follower,
+        "total": total, "follower_pct": follower_pct, "note": None,
+    }
+
+
 def fetch_follower_demographics(access_token: str, ig_user_id: str) -> dict:
     """Реальная органическая аудитория аккаунта (возраст/пол подписчиков) — follower_demographics
     из Instagram Graph API. Нужен Business/Creator-аккаунт с 100+ подписчиками и обязательный
