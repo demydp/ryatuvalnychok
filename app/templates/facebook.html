@@ -1,0 +1,19 @@
+<h1 data-i18n="facebook.title">Facebook</h1>
+<p class="subtitle" id="facebook-subtitle" data-i18n="facebook.subtitle_default">Нажми «Синхронизировать», чтобы загрузить данные Facebook-страниц.</p>
+
+<div class="toolbar">
+  <button class="btn" id="btn-facebook-sync" data-i18n="facebook.sync_btn">Синхронизировать</button>
+  <span class="meta" id="facebook-sync-meta"></span>
+  <span class="meta" id="facebook-sync-ago"></span>
+</div>
+
+<p class="hint" style="margin: -8px 0 16px;" data-i18n="facebook.hint">
+  Раздел намеренно ограничен: реально проверено, что Facebook Graph API отдаёт только число
+  подписчиков страницы и список постов без метрик. Реакции/клики/просмотры поста и охват/показы
+  страницы недоступны прямо сейчас — либо отсутствует отдельное разрешение (реакции), либо Meta
+  убрала эти метрики из API в 2026 (охват/показы).
+</p>
+
+<div id="facebook-content" style="display:none;"></div>
+
+<div id="facebook-empty" class="empty-state" data-i18n="facebook.empty">Данных пока нет.</div>
