@@ -1,0 +1,20 @@
+<h1 data-i18n="tiktok.title">TikTok</h1>
+<p class="subtitle" id="tiktok-subtitle" data-i18n="tiktok.subtitle_not_connected">Аккаунт TikTok ещё не подключён — сделайте это в Настройках.</p>
+
+<div id="tiktok-not-connected" class="empty-state">
+  <button class="btn" id="btn-tiktok-goto-settings" data-i18n="tiktok.goto_settings">Перейти в Настройки</button>
+</div>
+
+<div id="tiktok-connected-content" style="display:none;">
+  <p class="hint" data-i18n="tiktok.stage_note">
+    Раздел пока на этапе диагностики: показываем, какие данные реально отдаёт TikTok API для
+    подключённого аккаунта, прежде чем строить таблицу метрик и хук-анализ на предположениях.
+  </p>
+
+  <div class="card">
+    <h2 data-i18n="tiktok.diagnostic.heading">Диагностика API</h2>
+    <button class="btn secondary" id="btn-tiktok-diagnostic" data-i18n="tiktok.diagnostic.run_btn">Запустить диагностику</button>
+    <div id="tiktok-diagnostic-status" class="status-box"></div>
+    <div id="tiktok-diagnostic-result" style="display:none; margin-top:14px;"></div>
+  </div>
+</div>

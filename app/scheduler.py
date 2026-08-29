@@ -84,7 +84,9 @@ def _all_user_project_pairs():
 
 def _run_token_refresh_job(app):
     """Проходиться по ВСІХ проєктах ВСІХ юзерів — інакше токен клієнта, на якого зараз не
-    перемкнуті (чи чужого юзера), тихо спливає непоміченим."""
+    перемкнуті (чи чужого юзера), тихо спливає непоміченим. Продовжує і IG-, і TikTok-токен
+    (незалежні механізми, обидва честно пропускаються, якщо токен цього типу не підключено)."""
+    from app.tiktok_token_refresh import refresh_if_needed as tiktok_refresh_if_needed
     from app.token_refresh import refresh_if_needed
 
     with app.app_context():
@@ -101,6 +103,15 @@ def _run_token_refresh_job(app):
                     logger.warning("Плановая проверка токена (%s): продление не удалось (%s)", project["name"], result.get("reason"))
             except Exception:
                 logger.exception("Плановая проверка токена (%s) упала с исключением", project["name"])
+
+            try:
+                tiktok_result = tiktok_refresh_if_needed(project_id=project["id"], force=False)
+                if tiktok_result["action"] == "refreshed":
+                    logger.info("Плановая проверка TikTok-токена (%s): продлён, годен до %s", project["name"], tiktok_result.get("expires_at"))
+                elif tiktok_result["action"] == "failed":
+                    logger.warning("Плановая проверка TikTok-токена (%s): продление не удалось (%s)", project["name"], tiktok_result.get("reason"))
+            except Exception:
+                logger.exception("Плановая проверка TikTok-токена (%s) упала с исключением", project["name"])
         time.sleep(JOB_ITEM_DELAY_SEC)
 
 

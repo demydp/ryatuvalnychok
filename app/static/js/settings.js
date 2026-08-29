@@ -207,6 +207,14 @@
           <div class="status-box project-anthropic-status"></div>
         </div>
 
+        <div class="field">
+          <label>${I18N.t("settings.tiktok.heading")}</label>
+          <div class="hint" style="margin-bottom:6px;">${I18N.t("settings.tiktok.hint")}</div>
+          <a class="btn secondary project-tiktok-connect" style="text-decoration:none;" href="/api/tiktok/connect?project_id=${encodeURIComponent(p.id)}" data-i18n="settings.tiktok.connect_btn">${I18N.t("settings.tiktok.connect_btn")}</a>
+          <button class="btn secondary project-tiktok-disconnect" style="display:none;" data-i18n="settings.tiktok.disconnect_btn">${I18N.t("settings.tiktok.disconnect_btn")}</button>
+          <div class="status-box project-tiktok-status"></div>
+        </div>
+
         <div class="category-actions">
           <button class="btn project-save-btn">${I18N.t("projects.save_btn")}</button>
           ${isActive ? "" : `<button class="icon-btn project-activate-btn">${I18N.t("projects.activate_btn")}</button>`}
@@ -377,6 +385,52 @@
         }
       });
 
+      const tiktokConnectLink = card.querySelector(".project-tiktok-connect");
+      const tiktokDisconnectBtn = card.querySelector(".project-tiktok-disconnect");
+      const tiktokStatusEl = card.querySelector(".project-tiktok-status");
+
+      async function loadTikTokStatus() {
+        try {
+          const res = await fetch(`/api/tiktok/status?project_id=${encodeURIComponent(projectId)}`);
+          const data = await res.json();
+          if (!data.configured) {
+            tiktokConnectLink.style.display = "none";
+            tiktokDisconnectBtn.style.display = "none";
+            tiktokStatusEl.className = "status-box show warn";
+            tiktokStatusEl.textContent = I18N.t("settings.tiktok.not_configured");
+            return;
+          }
+          if (data.connected) {
+            tiktokConnectLink.style.display = "none";
+            tiktokDisconnectBtn.style.display = "inline-block";
+            tiktokStatusEl.className = "status-box show ok";
+            tiktokStatusEl.textContent = I18N.t("settings.tiktok.connected_as", {
+              username: data.username || data.open_id, display_name: data.display_name || "",
+            });
+          } else {
+            tiktokConnectLink.style.display = "inline-block";
+            tiktokDisconnectBtn.style.display = "none";
+            tiktokStatusEl.className = "status-box show";
+            tiktokStatusEl.textContent = I18N.t("settings.tiktok.not_connected");
+          }
+        } catch (e) {
+          tiktokStatusEl.className = "status-box show error";
+          tiktokStatusEl.textContent = I18N.t("settings.msg.network_error", { message: e.message });
+        }
+      }
+
+      tiktokDisconnectBtn.addEventListener("click", async () => {
+        if (!confirm(I18N.t("settings.tiktok.confirm_disconnect"))) return;
+        await fetch("/api/tiktok/disconnect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_id: projectId }),
+        });
+        loadTikTokStatus();
+      });
+
+      loadTikTokStatus();
+
       const anthropicBtn = card.querySelector(".project-test-anthropic");
       const anthropicStatusEl = card.querySelector(".project-anthropic-status");
       anthropicBtn.addEventListener("click", async () => {
@@ -426,6 +480,11 @@
     }
     newProjectNameInput.value = "";
     location.reload();
+  });
+
+  document.addEventListener("tiktok-oauth-result", (e) => {
+    saveStatus.textContent = e.detail.message;
+    setTimeout(() => (saveStatus.textContent = ""), 6000);
   });
 
   loadSettings();

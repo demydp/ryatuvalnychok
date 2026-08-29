@@ -18,7 +18,37 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   loadTokenStatusPill();
+  applyUrlTabParams(tabButtons, panels);
 });
+
+/** Обробка редіректу назад із TikTok OAuth (app/routes/tiktok.py::callback): ?tab=settings
+    відкриває потрібну вкладку, ?tiktok=connected|error(&tiktok_message=...) показує короткий
+    статус там-таки. Прибираємо параметри з адресного рядка одразу після зчитування, щоб
+    перезавантаження сторінки не показувало банер повторно. */
+function applyUrlTabParams(tabButtons, panels) {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get("tab");
+  if (tab && document.getElementById(`tab-${tab}`)) {
+    tabButtons.forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+    panels.forEach((p) => p.classList.toggle("active", p.id === `tab-${tab}`));
+  }
+
+  const tiktokStatus = params.get("tiktok");
+  if (tiktokStatus) {
+    const message =
+      tiktokStatus === "connected"
+        ? I18N.t("tiktok.msg.connected_banner")
+        : I18N.t("tiktok.msg.error_banner", { message: params.get("tiktok_message") || "" });
+    window.__TIKTOK_OAUTH_RESULT__ = { status: tiktokStatus, message };
+    document.dispatchEvent(new CustomEvent("tiktok-oauth-result", { detail: window.__TIKTOK_OAUTH_RESULT__ }));
+  }
+
+  if (tab || tiktokStatus) {
+    const url = new URL(window.location.href);
+    url.search = "";
+    window.history.replaceState({}, "", url.toString());
+  }
+}
 
 /** Пилюля статуса токена в шапке — видна на любой вкладке, не только в Настройках, чтобы
     истечение токена не стало сюрпризом, когда пользователь давно не заходил в Настройки. */

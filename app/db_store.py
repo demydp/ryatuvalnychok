@@ -38,6 +38,15 @@ PROJECT_FIELDS = (
     "account_niche",
     "anthropic_api_key",
     "anthropic_key_verified",
+    "tiktok_access_token",
+    "tiktok_refresh_token",
+    "tiktok_open_id",
+    "tiktok_username",
+    "tiktok_display_name",
+    "tiktok_avatar_url",
+    "tiktok_token_obtained_at",
+    "tiktok_access_token_expires_at",
+    "tiktok_refresh_token_expires_at",
 )
 
 # Той самий набір, що раніше був у config_store.py::DEFAULTS (без per-project полів —

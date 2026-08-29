@@ -82,6 +82,7 @@ def create_app():
     from app.routes.metrics import metrics_bp
     from app.routes.stories import stories_bp
     from app.routes.facebook import facebook_bp
+    from app.routes.tiktok import tiktok_bp
     from app.routes.analysis import analysis_bp
     from app.routes.hooks import hooks_bp
     from app.routes.generator import generator_bp
@@ -109,6 +110,7 @@ def create_app():
     app.register_blueprint(metrics_bp, url_prefix="/api/metrics")
     app.register_blueprint(stories_bp, url_prefix="/api/stories")
     app.register_blueprint(facebook_bp, url_prefix="/api/facebook")
+    app.register_blueprint(tiktok_bp, url_prefix="/api/tiktok")
     app.register_blueprint(analysis_bp, url_prefix="/api/analysis")
     app.register_blueprint(hooks_bp, url_prefix="/api/hooks")
     app.register_blueprint(generator_bp, url_prefix="/api/generator")

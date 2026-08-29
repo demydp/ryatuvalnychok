@@ -109,6 +109,18 @@ class Project(db.Model):
     ig_token_expires_at = db.Column(db.String(64), default="")
     ads_account_id = db.Column(db.String(64), default="")
     account_niche = db.Column(db.Text, default="")
+    # TikTok for Developers (Login Kit OAuth v2 + Display API) — Этап діагностики, серпень 2026.
+    # access_token живе типово ~24 год, refresh_token — ~365 днів (див. app/tiktok_token_refresh.py);
+    # обидва шифруються так само, як ig_access_token.
+    tiktok_access_token = db.Column(EncryptedText, default="")
+    tiktok_refresh_token = db.Column(EncryptedText, default="")
+    tiktok_open_id = db.Column(db.String(128), default="")
+    tiktok_username = db.Column(db.String(255), default="")
+    tiktok_display_name = db.Column(db.String(255), default="")
+    tiktok_avatar_url = db.Column(db.Text, default="")
+    tiktok_token_obtained_at = db.Column(db.String(64), default="")
+    tiktok_access_token_expires_at = db.Column(db.String(64), default="")
+    tiktok_refresh_token_expires_at = db.Column(db.String(64), default="")
     # Опційний оверайд спільного UserSettings.anthropic_api_key на рівні одного проєкту —
     # та сама семантика, що була в PROJECT_FIELDS/get_effective_config() раніше.
     anthropic_api_key = db.Column(EncryptedText, default="")
