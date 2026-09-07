@@ -21,15 +21,15 @@ def _is_production() -> bool:
     """Той самий сигнал, що вже розрізняє SQLite/Postgres у app/db.py::get_database_uri()
     (винесений в app/deploy_mode.py::is_web_deployment(), щоб ним же гейтились і
     desktop-only ендпоінти в app/routes/settings.py/updates.py) — DATABASE_PUBLIC_URL/
-    DATABASE_URL заданий лише на Railway, ніколи в локальній розробці. Перевикористовуємо
-    його замість заведення окремої змінної оточення (Этап 3: продові налаштування — secure
-    cookies, HTTPS, жорсткі перевірки секретів — вмикаються тим самим "ми на Railway", яким
-    уже керується вибір БД)."""
+    DATABASE_URL заданий лише на веб-деплої (Render), ніколи в локальній розробці.
+    Перевикористовуємо його замість заведення окремої змінної оточення (Этап 3: продові
+    налаштування — secure cookies, HTTPS, жорсткі перевірки секретів — вмикаються тим самим
+    "ми на Render", яким уже керується вибір БД)."""
     return is_web_deployment()
 
 
 def create_app():
-    load_dotenv()  # DATABASE_PUBLIC_URL/ENCRYPTION_KEY/SECRET_KEY з .env (Railway їх задає як env vars напряму)
+    load_dotenv()  # DATABASE_URL/ENCRYPTION_KEY/SECRET_KEY з .env (Render їх задає як env vars напряму)
 
     setup_logging()
     logger = logging.getLogger("reels_dashboard")
@@ -37,10 +37,10 @@ def create_app():
     is_production = _is_production()
 
     app = Flask(__name__)
-    # Railway (як і будь-який PaaS) термінує HTTPS на своєму реверс-проксі й передає застосунку
+    # Render (як і будь-який PaaS) термінує HTTPS на своєму реверс-проксі й передає застосунку
     # звичайний HTTP — без ProxyFix Flask вважав би кожен запит незахищеним (request.scheme,
     # url_for(_external=True) тощо), хоча в браузері адреса вже https://. x_for/x_proto=1 —
-    # довіряємо рівно ОДНОМУ хопу проксі (сам Railway), як і рекомендує документація Werkzeug.
+    # довіряємо рівно ОДНОМУ хопу проксі (сам Render), як і рекомендує документація Werkzeug.
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or _dev_secret_key_fallback(logger, is_production)
@@ -60,7 +60,7 @@ def create_app():
             # секрету десь усередині випадкового HTTP-запиту (app/crypto.py) — незрозуміла
             # помилка в середині обробки запиту гірша за чіткий крах під час деплою.
             raise RuntimeError(
-                "ENCRYPTION_KEY не задано в оточенні Railway — обов'язково для продакшену. "
+                "ENCRYPTION_KEY не задано в оточенні Render — обов'язково для продакшену. "
                 "Згенеруйте: python -c \"from app.crypto import generate_key; print(generate_key())\""
             )
 
@@ -99,7 +99,7 @@ def create_app():
     app.register_blueprint(onboarding_bp, url_prefix="/api/onboarding")
     if not is_production:
         # Самообновлення через встановлювач (app/update_checker.py) — має сенс лише для
-        # desktop-збірки з ярликом на диску. На Railway (спільний веб-сервер, анонімний вхід)
+        # desktop-збірки з ярликом на диску. На веб-деплої (спільний веб-сервер, анонімний вхід)
         # /api/updates/apply качав би довільний .exe і намагався запустити інсталятор —
         # тому в проді роут навіть не реєструється, а не просто ховається за перевіркою ключа.
         from app.routes.updates import updates_bp
@@ -132,7 +132,11 @@ def create_app():
     # current_user.is_authenticated після цього блоку завжди True.
     @app.before_request
     def ensure_anonymous_session():
-        if request.endpoint is None or request.endpoint == "static":
+        # "health" виключено так само, як "static": UptimeRobot/Render health-check б'ють
+        # сюди без кукі кожні кілька хвилин — без цього винятку кожен пінг мовчки заводив би
+        # новий рядок у users (create_anonymous_user), засмічуючи БД юзерами, яких ніхто
+        # не створював.
+        if request.endpoint is None or request.endpoint in ("static", "health"):
             return None
         if not current_user.is_authenticated:
             from app.db_store import create_anonymous_user
@@ -140,6 +144,17 @@ def create_app():
             user = create_anonymous_user()
             login_user(user, remember=True, duration=ANON_SESSION_DURATION)
         return None
+
+    @app.route("/health")
+    def health():
+        # Лёгкий ендпоінт без звернення до БД — для зовнішнього пінгера (UptimeRobot),
+        # щоб безкоштовний Render-інстанс не засинав від відсутності трафіку (інакше
+        # разом із процесом засинає й фоновий APScheduler — автопродовження IG-токена,
+        # денний звіт, авто-синк метрик, див. app/scheduler.py). Свідомо не звертається до
+        # Neon — Neon засинає незалежно від Render (власний autosuspend) і прокидається сам
+        # на перший реальний SQL-запит (pool_pre_ping=True в app/db.py вже покриває цей
+        # випадок), тому пінгувати БД звідси не потрібно.
+        return "ok", 200
 
     @app.route("/")
     def index():
@@ -163,10 +178,10 @@ def create_app():
         return jsonify({"error": t("common.msg.unexpected_error", error=str(e))}), 500
 
     # RUN_SCHEDULER (Этап 3): за замовчуванням увімкнено — так само, як і завжди (desktop,
-    # flask run, один gunicorn-воркер на Railway). Явно вимикається (RUN_SCHEDULER=0) лише якщо
+    # flask run, один gunicorn-воркер на Render). Явно вимикається (RUN_SCHEDULER=0) лише якщо
     # колись знадобиться кілька gunicorn-воркерів АБО окремий процес-планувальник — інакше
     # кожен воркер підняв би СВІЙ BackgroundScheduler і всі cron/interval job'и дублювалися б
-    # (двічі продовжений токен, подвійний денний звіт тощо). Задеплоєний Procfile навмисно
+    # (двічі продовжений токен, подвійний денний звіт тощо). Render Start Command навмисно
     # тримає --workers 1, тому дублювання не станеться навіть без цього прапорця — він лише
     # запобіжник на майбутнє масштабування.
     if os.environ.get("RUN_SCHEDULER", "1") != "0":
@@ -180,13 +195,13 @@ def create_app():
 def _dev_secret_key_fallback(logger, is_production: bool) -> str:
     if is_production:
         raise RuntimeError(
-            "SECRET_KEY не задано в оточенні Railway — обов'язково для продакшену (без нього "
+            "SECRET_KEY не задано в оточенні Render — обов'язково для продакшену (без нього "
             "сесії/remember-cookie небезпечні й не переживуть рестарт процесу). Згенеруйте: "
             "python -c \"import secrets; print(secrets.token_hex(32))\""
         )
     logger.warning(
         "SECRET_KEY не задано в оточенні — використовую фіксований dev-ключ (сесії НЕ будуть "
         "безпечними/persistent між рестартами процесу). Обов'язково задайте SECRET_KEY у "
-        "Railway variables / .env перед реальним використанням."
+        "Render Variables / .env перед реальним використанням."
     )
     return "dev-insecure-secret-key-set-SECRET_KEY-env-var"

@@ -3,14 +3,14 @@
 
 Раніше (desktop, JSON-файли) ключі лежали в config.json/projects.json відкритим текстом — це
 було прийнятно, бо файл живе тільки на машині власника. У багатокористувацькій веб-версії БД
-спільна (Railway Postgres), тому секрети шифруються симетрично (Fernet, AES-128-CBC + HMAC) —
+спільна (Postgres на Neon), тому секрети шифруються симетрично (Fernet, AES-128-CBC + HMAC) —
 навіть прямий доступ до БД (дамп, витік креденшів БД) не розкриває чужі токени/ключі.
 
 Ключ шифрування — ENCRYPTION_KEY (одна змінна оточення на весь застосунок, НЕ в БД і НЕ в
 репозиторії) — Fernet-ключ (32 байти, urlsafe-base64). Втрата ENCRYPTION_KEY означає втрату
 можливості розшифрувати всі секрети в БД (навмисно: інакше ключ шифрування довелося б зберігати
 поряд із зашифрованими даними, що зводить шифрування нанівець) — тому генерується один раз при
-розгортанні (generate_key()) і кладеться в .env/Railway-змінні, НІКОЛИ не логується.
+розгортанні (generate_key()) і кладеться в .env / змінні оточення хостингу (Render Variables), НІКОЛИ не логується.
 """
 import logging
 import os
@@ -28,7 +28,7 @@ class CryptoConfigError(Exception):
 
 
 def generate_key() -> str:
-    """Одноразова генерація нового Fernet-ключа для .env/Railway — див. модульний docstring."""
+    """Одноразова генерація нового Fernet-ключа для .env/Render Variables — див. модульний docstring."""
     return Fernet.generate_key().decode("ascii")
 
 
@@ -42,7 +42,7 @@ def _get_fernet() -> Fernet:
             "ENCRYPTION_KEY не задано в оточенні — секрети (IG-токени, Anthropic-ключі) "
             "неможливо ні зашифрувати, ні розшифрувати. Згенеруйте ключ: "
             "python -c \"from app.crypto import generate_key; print(generate_key())\" "
-            "і додайте його як ENCRYPTION_KEY у .env / Railway variables."
+            "і додайте його як ENCRYPTION_KEY у .env / Render Variables."
         )
     try:
         _fernet = Fernet(key.encode("ascii"))

@@ -60,7 +60,7 @@ def _get_env(name: str) -> str:
     if not value:
         raise TikTokConfigError(
             f"{name} не задано в оточенні — підключення TikTok неможливе, поки власник "
-            f"застосунку не додасть цю змінну (Railway Variables / .env)."
+            f"застосунку не додасть цю змінну (Render Variables / .env)."
         )
     return value
 
